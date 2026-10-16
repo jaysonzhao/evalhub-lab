@@ -7,6 +7,6 @@ COPY runner/ /opt/maas-evaluation/runner/
 COPY requirements.lock /opt/maas-evaluation/requirements.lock
 RUN chmod -R a+rX /opt/maas-evaluation
 
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 SSL_CERT_FILE=/etc/maas-evaluation/ca.crt
 USER 1001
 ENTRYPOINT ["python3", "/opt/maas-evaluation/runner/cli.py"]

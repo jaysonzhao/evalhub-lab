@@ -122,6 +122,10 @@ def _valid_secret_name(name: str) -> bool:
     return bool(DNS_LABEL_RE.fullmatch(name))
 
 
+def _valid_claim_name(name: str) -> bool:
+    return bool(DNS_LABEL_RE.fullmatch(name))
+
+
 def validate_endpoint_secret_binding(endpoint: str, secret_name: str, bindings: list[dict[str, Any]]) -> None:
     if not _valid_secret_name(secret_name):
         raise EvaluationError("model-secret-name must be a valid Kubernetes Secret name.")
@@ -624,8 +628,19 @@ class Workflow:
 
     @staticmethod
     def _validate_test_data_ref(value: Any, model_secret_name: str) -> None:
-        if not isinstance(value, dict) or set(value) != {"s3"} or not isinstance(value["s3"], dict):
-            raise EvaluationError("Each selected benchmark requires a configured S3 test_data_ref.")
+        if not isinstance(value, dict):
+            raise EvaluationError("Each selected benchmark requires a configured S3 or PVC test_data_ref.")
+        if set(value) == {"pvc"} and isinstance(value["pvc"], dict):
+            pvc = value["pvc"]
+            if (
+                set(pvc) != {"claim_name"}
+                or not isinstance(pvc.get("claim_name"), str)
+                or not _valid_claim_name(pvc["claim_name"])
+            ):
+                raise EvaluationError("PVC test_data_ref requires a valid tenant-local claim_name.")
+            return
+        if set(value) != {"s3"} or not isinstance(value["s3"], dict):
+            raise EvaluationError("Each selected benchmark requires exactly one S3 or PVC test_data_ref.")
         s3 = value["s3"]
         if not all(isinstance(s3.get(k), str) and s3[k].strip() for k in ("bucket", "key", "secret_ref")):
             raise EvaluationError("S3 test_data_ref requires bucket, key, and tenant Secret reference.")

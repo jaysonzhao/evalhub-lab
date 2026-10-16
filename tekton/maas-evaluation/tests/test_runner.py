@@ -300,6 +300,32 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual([item["dataset"] for item in submitted["jobs"]], ["cmmlu"])
         self.assertEqual(api.submits, 1)
 
+    def test_tenant_local_pvc_reference_is_forwarded_for_selected_dataset(self) -> None:
+        runtime = make_runtime()
+        runtime["test_data_refs"]["hkmmlu"] = {"pvc": {"claim_name": "chinese-benchmark-data"}}
+        (self.root / "runtime.json").write_text(json.dumps(runtime), encoding="utf-8")
+        api = FakeAPI()
+        workflow = Workflow(self.env, api)
+        workflow.preflight(
+            endpoint="https://maas.example.test/llm/gpt-oss-20b",
+            model_secret_name="shared-maas-key", model_name="gpt-oss-20b",
+            profile="smoke", datasets=["hkmmlu"],
+        )
+        workflow.submit(datasets=["hkmmlu"])
+        self.assertEqual(
+            api.requests[0]["benchmarks"][0]["test_data_ref"],
+            {"pvc": {"claim_name": "chinese-benchmark-data"}},
+        )
+
+    def test_pvc_reference_rejects_invalid_or_extra_fields(self) -> None:
+        for data_ref in (
+            {"pvc": {"claim_name": "Bad_Name"}},
+            {"pvc": {"claim_name": "chinese-benchmark-data", "secret_ref": "unexpected"}},
+            {"pvc": {"claim_name": "chinese-benchmark-data"}, "s3": {}},
+        ):
+            with self.subTest(data_ref=data_ref), self.assertRaises(EvaluationError):
+                Workflow._validate_test_data_ref(data_ref, "shared-maas-key")
+
     def test_unique_correlation_reconciliation_only_adopts_one_exact_job(self) -> None:
         entry = {"correlation_tag": "tekton-correlation:uid:hkmmlu", "name": "maas-1234-hkmmlu"}
         recovered, status = reconcile_by_correlation(FakeAPI("recover_one"), entry)

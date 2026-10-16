@@ -6,10 +6,10 @@ The sample all-benchmark run uses the `smoke` profile. It samples up to five val
 
 ## Prerequisites
 
-- RHOAI 3.5 EvalHub and MLflow are healthy; the `chinese-mcq-v2` provider is registered and serves the four stable benchmark IDs.
-- OpenShift Pipelines serves `tekton.dev/v1`. The runner image can reach EvalHub and the Kubernetes API using trusted TLS. EvalHub evaluation Jobs can reach the MaaS endpoint and the configured S3 data source.
-- The pipeline namespace is also the EvalHub tenant namespace (`evalhub-lab` in the examples), so EvalHub can resolve both the model Secret and the separate S3 credential Secret. The runner ServiceAccount never reads either Secret.
-- The JSONL datasets selected for the run and their `manifest.json` are published at a versioned S3 location readable by EvalHub. Do not use a mutable `latest` data prefix.
+- RHOAI 3.5 EvalHub and MLflow are healthy; a registered Chinese MCQ provider serves the stable benchmark IDs. Configure its actual provider UUID, not a display label.
+- OpenShift Pipelines serves `tekton.dev/v1`. The runner image can reach EvalHub and the Kubernetes API using trusted TLS. EvalHub evaluation Jobs can reach the MaaS endpoint and the selected data source.
+- The pipeline namespace is also the EvalHub tenant namespace (`evalhub-lab` in the examples), so EvalHub can resolve the model Secret and the selected dataset source. The runner ServiceAccount never reads Secrets.
+- The selected JSONL dataset and its `manifest.json` are available through either a versioned S3 location or a tenant-local PVC. Do not use a mutable `latest` data prefix.
 - A registry and Python 3.12 base image are available. Pin both the base image and the final runner image by digest.
 
 The Tekton runner uses only the Python standard library. The EvalHub provider remains responsible for inference and scoring; Tekton does not start a serving stack or score model answers itself.
@@ -22,13 +22,13 @@ Prepare the approved data locally from the repository-pinned revisions and QualB
 python3 adapters/chinese-mcq/prepare_datasets.py --output-dir /tmp/chinese-mcq-prepared
 python3 tekton/maas-evaluation/scripts/make_dataset_profile.py \
   --manifest /tmp/chinese-mcq-prepared/manifest.json \
-  --provider-id chinese-mcq-v2 \
+  --provider-id <registered-provider-uuid> \
   --output tekton/maas-evaluation/deployment/dataset-profile.json
 ```
 
 For an MMLU-only environment, prepare with `--mmlu-only` and generate a partial data profile. Unselected datasets do not need prepared files, S3 references, or QualBench correction data. Selecting QualBench requires its approved diagnostic manifest and correction hash.
 
-Publish the files under `/tmp/chinese-mcq-prepared` to your versioned S3 prefix and configure the S3 credential Secret in `evalhub-lab` using the mechanism supported by the installed EvalHub service. Copy `config/runtime.example.json` to the ignored `deployment/runtime.json`. Set the actual S3 bucket, versioned keys/prefixes, tenant-local S3 Secret name, EvalHub URL, approved MaaS endpoint prefix, and endpoint-to-model-Secret binding. Leave `quality_thresholds` empty unless the team has approved explicit per-benchmark thresholds on the adapter's 0–100 percentage scale.
+Publish the files under `/tmp/chinese-mcq-prepared` to a versioned S3 prefix and configure the separate S3 credential Secret, or use an existing tenant-local PVC. Copy `config/runtime.example.json` to the ignored `deployment/runtime.json`. Set the actual provider UUID, selected `test_data_refs`, EvalHub URL, approved MaaS endpoint prefix, and endpoint-to-model-Secret binding. Leave `quality_thresholds` empty unless the team has approved explicit per-benchmark thresholds on the adapter's 0–100 percentage scale.
 
 The default endpoint and secret-name pattern already reflect the lab's `gpt-oss-20b` MaaS route. When changing endpoint access, update both the allowlist and its Secret binding; preflight rejects unmatched pairs before it submits any job.
 
@@ -58,12 +58,13 @@ After checking the installed CRDs and namespace, the install helper performs ser
 
 ```sh
 oc api-resources --api-group=tekton.dev
+oc api-resources --api-group=trustyai.opendatahub.io
 oc get tektonconfig
 PIPELINE_NAMESPACE=evalhub-lab ./scripts/install.sh
 oc create --dry-run=server -f ./pipelinerun.example.yaml -n evalhub-lab
 ```
 
-The runner Role is namespace-scoped. Its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object; it cannot create or edit the runtime ConfigMap, read Secrets, or administer providers. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
+The runner Role is namespace-scoped. Its EvalHub permissions target the served `lmevaljobs.trustyai.opendatahub.io` resource, and its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It cannot create or edit the runtime ConfigMap, read Secrets, or administer providers. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
 
 ## Trigger all four smoke evaluations
 

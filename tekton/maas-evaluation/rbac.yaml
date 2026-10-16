@@ -15,11 +15,8 @@ metadata:
     app.kubernetes.io/part-of: evalhub-lab
 rules:
   - apiGroups: [trustyai.opendatahub.io]
-    resources: [evaluations]
+    resources: [lmevaljobs]
     verbs: [get, list, create]
-  - apiGroups: [trustyai.opendatahub.io]
-    resources: [providers]
-    verbs: [get, list]
   - apiGroups: [""]
     resources: [configmaps]
     resourceNames: [maas-eval-ledger]

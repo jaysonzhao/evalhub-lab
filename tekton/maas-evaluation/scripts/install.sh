@@ -10,8 +10,8 @@ if ! oc api-resources --api-group=tekton.dev -o name 2>/dev/null | rg -q '^pipel
   echo "The Tekton Pipeline API is not served by this cluster." >&2
   exit 2
 fi
-if ! oc api-resources --api-group=trustyai.opendatahub.io -o name 2>/dev/null | rg -q '^evaluations\.trustyai\.opendatahub\.io$'; then
-  echo "The EvalHub evaluations API is not served by this cluster." >&2
+if ! oc api-resources --api-group=trustyai.opendatahub.io -o name 2>/dev/null | rg -q '^lmevaljobs\.trustyai\.opendatahub\.io$'; then
+  echo "The EvalHub LMEvalJob API is not served by this cluster." >&2
   exit 2
 fi
 if [[ ! -f "$ROOT/dist/tasks.yaml" ]]; then

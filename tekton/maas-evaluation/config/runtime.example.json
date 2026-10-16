@@ -1,7 +1,7 @@
 {
   "evalhub_url": "https://evalhub-evalhub-lab.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com",
   "tenant": "evalhub-lab",
-  "provider_id": "chinese-mcq-v2",
+  "provider_id": "REPLACE_WITH_REGISTERED_PROVIDER_UUID",
   "approved_endpoint_prefixes": [
     "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b"
   ],
