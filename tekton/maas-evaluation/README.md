@@ -28,7 +28,7 @@ python3 tekton/maas-evaluation/scripts/make_dataset_profile.py \
 
 For an MMLU-only environment, prepare with `--mmlu-only` and generate a partial data profile. Unselected datasets do not need prepared files, S3 references, or QualBench correction data. Selecting QualBench requires its approved diagnostic manifest and correction hash.
 
-Publish the files under `/tmp/chinese-mcq-prepared` to a versioned S3 prefix and configure the separate S3 credential Secret, or use an existing tenant-local PVC. Copy `config/runtime.example.json` to the ignored `deployment/runtime.json`. Set the actual provider UUID, selected `test_data_refs`, EvalHub URL, approved MaaS endpoint prefix, and endpoint-to-model-Secret binding. Leave `quality_thresholds` empty unless the team has approved explicit per-benchmark thresholds on the adapter's 0–100 percentage scale.
+Publish the files under `/tmp/chinese-mcq-prepared` to a versioned S3 prefix and configure the separate S3 credential Secret, or use an existing tenant-local PVC. Copy `config/runtime.example.json` to the ignored `deployment/runtime.json`. Set the actual provider UUID, selected `test_data_refs`, cluster-local EvalHub service URL, service CA bundle path, approved MaaS endpoint prefix, and endpoint-to-model-Secret binding. Leave `quality_thresholds` empty unless the team has approved explicit per-benchmark thresholds on the adapter's 0–100 percentage scale.
 
 The default endpoint and secret-name pattern already reflect the lab's `gpt-oss-20b` MaaS route. When changing endpoint access, update both the allowlist and its Secret binding; preflight rejects unmatched pairs before it submits any job.
 

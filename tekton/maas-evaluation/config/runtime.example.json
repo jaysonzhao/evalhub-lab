@@ -1,5 +1,6 @@
 {
-  "evalhub_url": "https://evalhub-evalhub-lab.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com",
+  "evalhub_url": "https://evalhub.evalhub-lab.svc.cluster.local:8443",
+  "ca_bundle_path": "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt",
   "tenant": "evalhub-lab",
   "provider_id": "REPLACE_WITH_REGISTERED_PROVIDER_UUID",
   "approved_endpoint_prefixes": [
