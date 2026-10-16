@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from urllib.error import URLError
 
@@ -18,6 +19,7 @@ from runner.core import (  # noqa: E402
     EvaluationError,
     Workflow,
     assess_dataset_result,
+    command_results,
     normalize_datasets,
     parse_dataset_csv,
     profile_parameters,
@@ -238,6 +240,19 @@ class WorkflowTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_preflight_command_dispatch_writes_checkpoint_and_result(self) -> None:
+        workflow = Workflow(self.env, FakeAPI())
+        result_path = self.root / "profile-hash"
+        args = SimpleNamespace(
+            endpoint="https://maas.example.test/llm/gpt-oss-20b",
+            model_secret_name="shared-maas-key", model_name="gpt-oss-20b",
+            profile="smoke", dataset=["hkmmlu"], result_path=str(result_path),
+        )
+        command_results(workflow, "preflight", args)
+        state = json.loads((self.root / "results" / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["selection"]["selected_datasets"], ["hkmmlu"])
+        self.assertEqual(result_path.read_text(encoding="utf-8"), state["selection"]["profile_hash"])
 
     def test_all_four_submit_independent_jobs_without_key_material(self) -> None:
         api = FakeAPI()

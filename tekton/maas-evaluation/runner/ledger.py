@@ -123,7 +123,7 @@ class ConfigMapLedger:
                 return 409, None
             status = int(exc.code)
             exc.close()
-            raise LedgerError(f"Kubernetes ledger API returned HTTP {status}.") from None
+            raise LedgerError(f"Kubernetes ledger API returned HTTP {status} for {method}.") from None
         except (urllib.error.URLError, TimeoutError, ssl.SSLError, OSError, json.JSONDecodeError) as exc:
             raise LedgerError(f"Kubernetes durable-ledger request failed ({type(exc).__name__}).") from None
 

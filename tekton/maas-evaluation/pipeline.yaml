@@ -42,6 +42,10 @@ spec:
       taskRef:
         name: maas-eval-preflight
       params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
         - name: maas-endpoint
           value: $(params.maas-endpoint)
         - name: model-secret-name
@@ -61,6 +65,10 @@ spec:
       taskRef:
         name: maas-eval-submit
       params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
         - name: datasets
           value: $(params.datasets[*])
       workspaces:
@@ -70,6 +78,11 @@ spec:
       runAfter: [submit]
       taskRef:
         name: maas-eval-wait
+      params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
       workspaces:
         - name: results
           workspace: results
@@ -77,6 +90,11 @@ spec:
       runAfter: [wait]
       taskRef:
         name: maas-eval-collect
+      params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
       workspaces:
         - name: results
           workspace: results
@@ -84,6 +102,11 @@ spec:
       runAfter: [collect]
       taskRef:
         name: maas-eval-gate
+      params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
       workspaces:
         - name: results
           workspace: results
@@ -91,6 +114,11 @@ spec:
     - name: diagnostics
       taskRef:
         name: maas-eval-diagnostics
+      params:
+        - name: pipeline-run-uid
+          value: $(context.pipelineRun.uid)
+        - name: pipeline-run-name
+          value: $(context.pipelineRun.name)
       workspaces:
         - name: results
           workspace: results

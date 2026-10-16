@@ -1070,7 +1070,9 @@ def _write_result(path: Path, value: str) -> None:
 
 
 def command_results(workflow: Workflow, command: str, args: Any) -> None:
-    if command == "submit":
+    if command == "preflight":
+        run_preflight(workflow, args)
+    elif command == "submit":
         state = workflow.submit(datasets=args.dataset)
         job_ids = [{"dataset": job["dataset"], "job_id": job.get("job_id"), "submission_state": job["submission_state"]} for job in state["jobs"]]
         _write_result(Path(args.job_ids_result), json.dumps(job_ids, separators=(",", ":")))
