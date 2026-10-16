@@ -1,0 +1,13 @@
+apiVersion: trustyai.opendatahub.io/v1
+kind: EvalHub
+metadata:
+  name: evalhub
+  namespace: evalhub-lab
+spec:
+  replicas: 1
+  tenancy: single
+  database:
+    type: postgresql
+    secret: evalhub-db-credentials
+    maxOpenConns: 20
+    maxIdleConns: 5

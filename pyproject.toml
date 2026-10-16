@@ -1,7 +1,7 @@
 [project]
 name = "rhoai-evalhub-lab"
 version = "1.0.0"
-description = "Korean LLM evaluation workshop using EvalHub on Red Hat OpenShift AI 3.5"
+description = "EvalHub lab for Chinese MCQ benchmarks on Red Hat OpenShift AI 3.5"
 requires-python = ">=3.12"
 dependencies = [
     "pandas",

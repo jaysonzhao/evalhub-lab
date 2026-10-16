@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: evalhub-lab
+  labels:
+    evalhub.trustyai.opendatahub.io/tenant: evalhub-lab
+  annotations:
+    openshift.io/display-name: EvalHub Lab
+    openshift.io/description: Isolated EvalHub lab deployment for Chinese MCQ evaluations

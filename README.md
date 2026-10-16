@@ -47,6 +47,21 @@ This workshop supports two model deployment modes:
 
 Evaluated models include **GLM-53-Flash** (MaaS), **Gemma 4 12B**, **Qwen3.6-27B-FP8**, **EXAONE 4.0 32B**, and **Qwen3-14B**.
 
+### Current EvalHub lab deployment
+
+The `deploy/openshift` manifests deploy EvalHub and a dedicated PostgreSQL database into the `evalhub-lab` namespace. On the cluster used for this deployment, the EvalHub Route is `https://evalhub-evalhub-lab.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com`.
+
+The default MaaS target for this lab is:
+
+```text
+MODEL_NAME=publishers/llm/models/gpt-oss-20b
+MODEL_ENDPOINT=https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/v1
+```
+
+Inference also requires a MaaS API key in `MODEL_API_KEY`. An OpenShift login token is for cluster access and cannot be used as the MaaS inference key. See [`deploy/openshift/README.md`](deploy/openshift/README.md) for the isolated service setup.
+
+Chinese MCQ data preparation is currently gated on an inconsistency in the pinned QualBench release; see [`adapters/chinese-mcq/PREFLIGHT.md`](adapters/chinese-mcq/PREFLIGHT.md). The EvalHub service is deployed, but no Chinese MCQ provider or evaluation has been registered or run yet.
+
 ## What's Included
 
 ### 0. Setup
@@ -194,7 +209,7 @@ Two content-safety guardrail models were evaluated on Korean hate speech detecti
 
 1. Clone this repo into your OpenShift AI Workbench:
   ```bash
-   git clone https://github.com/hyogrin/rhoai-evalhub-lab.git
+   git clone https://github.com/jaysonzhao/evalhub-lab.git
    cd rhoai-evalhub-lab
   ```
 2. Open `**0_setup/2_eval_hub_setup.ipynb**` and run **Step 0**:
@@ -219,7 +234,7 @@ No cluster setup required — the cluster owner provides you with the connection
 
 1. Clone this repo (Workbench, laptop, or any Jupyter environment):
   ```bash
-   git clone https://github.com/hyogrin/rhoai-evalhub-lab.git
+   git clone https://github.com/jaysonzhao/evalhub-lab.git
    cd rhoai-evalhub-lab
   ```
 2. Open `**0_setup/2_eval_hub_setup.ipynb**` and run **Step 0**:
