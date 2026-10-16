@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import sys
 import urllib.request
 import zipfile
 from collections import Counter
@@ -78,6 +79,8 @@ def _load_hkmmlu() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         source_files.append({"path": filename, "sha256": _sha256_file(path), "bytes": path.stat().st_size})
         for index, raw in enumerate(_read_csv(path)):
             rows.append(normalize_mmlu_row("hkmmlu", subject, index, raw))
+    if len(rows) != source["expected_rows"]:
+        raise ValueError(f"HKMMLU expected {source['expected_rows']:,} rows, found {len(rows):,}")
     return rows, source_files
 
 
@@ -158,7 +161,7 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> str:
     return _sha256_file(path)
 
 
-def prepare(output_dir: Path, correction_file: Path) -> dict[str, Any]:
+def prepare(output_dir: Path, correction_file: Path, include_qualbench: bool = True) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     benchmark_rows: dict[str, list[dict[str, Any]]] = {}
     benchmark_sources: dict[str, Any] = {}
@@ -173,15 +176,28 @@ def prepare(output_dir: Path, correction_file: Path) -> dict[str, Any]:
         benchmark_rows[name] = rows
         benchmark_sources[name] = sources
 
-    qualbench_rows, qualbench_audit, qualbench_source = _load_qualbench(correction_file)
-    benchmark_rows["qualbench"] = qualbench_rows
+    qualbench_audit = None
+    qualbench_source = None
+    if include_qualbench:
+        qualbench_rows, qualbench_audit, qualbench_source = _load_qualbench(correction_file)
+        benchmark_rows["qualbench"] = qualbench_rows
 
     manifest: dict[str, Any] = {
         "protocol": "chinese-mcq-zero-shot-strict-v1",
-        "qualbench_protocol": "qualbench-zero-shot-strict-v1",
+        "benchmark_suite": "all-four" if include_qualbench else "mmlu-three-only-preflight",
         "generated_by": "adapters/chinese-mcq/prepare_datasets.py",
+        "preparation_environment": {
+            "python": sys.version.split()[0],
+            "huggingface_hub": __import__("huggingface_hub").__version__,
+            "pyarrow": __import__("pyarrow").__version__,
+        },
         "benchmarks": {},
     }
+    if include_qualbench:
+        manifest.update({
+            "qualbench_protocol": "qualbench-zero-shot-strict-v1",
+            "qualbench_evaluation_label": qualbench_audit["evaluation_label"],
+        })
     for name, rows in benchmark_rows.items():
         path = output_dir / f"{name}.jsonl"
         rows_hash = _write_jsonl(path, rows)
@@ -198,11 +214,19 @@ def prepare(output_dir: Path, correction_file: Path) -> dict[str, Any]:
                 "source_split": "test",
                 "source_files": benchmark_sources[name],
                 "subjects": sorted({row["subject"] for row in rows}),
+                "source_rows_by_subject": {
+                    subject: sum(row["subject"] == subject for row in rows)
+                    for subject in sorted({row["subject"] for row in rows})
+                },
             })
-        else:
+        elif name == "qualbench":
             entry.update({
                 "source": qualbench_source,
                 "source_split": "released",
+                "source_file": "data/QualBench.json",
+                "source_row_count": qualbench_audit["source_rows"],
+                "evaluated_row_count": qualbench_audit["evaluated_rows"],
+                "evaluation_label": qualbench_audit["evaluation_label"],
                 "audit": qualbench_audit,
             })
         manifest["benchmarks"][name] = entry
@@ -220,14 +244,18 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--corrections", type=Path,
-        default=Path(__file__).resolve().parents[2] / "config" / "qualbench-corrections-v1.json",
+        default=Path(__file__).resolve().parents[2] / "config" / "qualbench-corrections-diagnostic-v2.json",
+    )
+    parser.add_argument(
+        "--mmlu-only", action="store_true",
+        help="Prepare only the three MMLU datasets while QualBench source anomalies are under review.",
     )
     args = parser.parse_args()
-    result = prepare(args.output_dir, args.corrections)
+    result = prepare(args.output_dir, args.corrections, include_qualbench=not args.mmlu_only)
     print(json.dumps({
         "output_dir": str(args.output_dir),
         "benchmarks": {name: item["row_count"] for name, item in result["benchmarks"].items()},
-        "qualbench_audit": result["benchmarks"]["qualbench"]["audit"],
+        "qualbench_audit": result["benchmarks"].get("qualbench", {}).get("audit"),
     }, ensure_ascii=False, indent=2))
 
 

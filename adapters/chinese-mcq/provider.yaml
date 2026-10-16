@@ -1,0 +1,63 @@
+id: chinese-mcq-v2
+name: Chinese MCQ Evaluation
+description: >
+  Zero-shot Chinese multiple-choice evaluation on pinned HKMMLU, TMMLU+,
+  CMMLU, and QualBench canonical datasets.
+
+runtime:
+  k8s:
+    image: image-registry.openshift-image-registry.svc:5000/${NAMESPACE}/chinese-mcq-adapter:latest
+    entrypoint:
+      - python
+      - main.py
+    cpu_request: 200m
+    memory_request: 512Mi
+    cpu_limit: "2"
+    memory_limit: 4Gi
+    env:
+      - name: PYTHONUNBUFFERED
+        value: "1"
+      - name: DATA_DIR
+        value: /test_data
+
+benchmarks:
+  - id: hkmmlu
+    name: HKMMLU
+    description: Hong Kong Traditional Chinese knowledge evaluation across 66 subjects.
+    category: knowledge
+    metrics: [overall_accuracy, valid_accuracy, subject_macro_accuracy, category_accuracy, request_success_rate, parse_success_rate, attempted_count, valid_count, correct_count, transport_failures, parse_failures, truncated_responses]
+    num_few_shot: 0
+    tags: [chinese, traditional-chinese, knowledge, mcq]
+    primary_score:
+      metric: overall_accuracy
+      lower_is_better: false
+  - id: tmmluplus
+    name: TMMLU+
+    description: Traditional Chinese MMLU+ evaluation across 66 subjects.
+    category: knowledge
+    metrics: [overall_accuracy, valid_accuracy, subject_macro_accuracy, category_accuracy, request_success_rate, parse_success_rate, attempted_count, valid_count, correct_count, transport_failures, parse_failures, truncated_responses]
+    num_few_shot: 0
+    tags: [chinese, traditional-chinese, knowledge, mcq]
+    primary_score:
+      metric: overall_accuracy
+      lower_is_better: false
+  - id: cmmlu
+    name: CMMLU
+    description: Simplified Chinese MMLU evaluation across 67 subjects.
+    category: knowledge
+    metrics: [overall_accuracy, valid_accuracy, subject_macro_accuracy, category_accuracy, request_success_rate, parse_success_rate, attempted_count, valid_count, correct_count, transport_failures, parse_failures, truncated_responses]
+    num_few_shot: 0
+    tags: [chinese, simplified-chinese, knowledge, mcq]
+    primary_score:
+      metric: overall_accuracy
+      lower_is_better: false
+  - id: qualbench
+    name: QualBench
+    description: Chinese professional-qualification knowledge evaluation.
+    category: knowledge
+    metrics: [overall_accuracy, valid_accuracy, domain_macro_accuracy, question_type_accuracy, category_accuracy, request_success_rate, parse_success_rate, attempted_count, valid_count, correct_count, transport_failures, parse_failures, truncated_responses]
+    num_few_shot: 0
+    tags: [chinese, qualification, knowledge, mcq]
+    primary_score:
+      metric: overall_accuracy
+      lower_is_better: false

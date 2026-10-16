@@ -1,0 +1,47 @@
+# Apply this file only after the evalhub-dashboard namespace and service
+# account exist. It grants read-only access in the source project.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: metrics-dashboard-evalhub-reader
+  namespace: evalhub-lab
+rules:
+  - apiGroups: ["trustyai.opendatahub.io"]
+    resourceNames: ["evalhub"]
+    resources: ["evalhubs"]
+    verbs: ["get"]
+  - apiGroups: ["trustyai.opendatahub.io"]
+    resourceNames: ["evalhub"]
+    resources: ["evalhubs/proxy"]
+    verbs: ["get", "create"]
+  - apiGroups: ["trustyai.opendatahub.io"]
+    resources: ["evaluations"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: metrics-dashboard-evalhub-reader
+  namespace: evalhub-lab
+subjects:
+  - kind: ServiceAccount
+    name: metrics-dashboard
+    namespace: evalhub-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: metrics-dashboard-evalhub-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: metrics-dashboard-mlflow-reader
+  namespace: evalhub-lab
+subjects:
+  - kind: ServiceAccount
+    name: metrics-dashboard
+    namespace: evalhub-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-view

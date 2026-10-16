@@ -1,0 +1,22 @@
+FROM registry.access.redhat.com/ubi9/nodejs-22 AS frontend
+USER 0
+WORKDIR /workspace/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM registry.access.redhat.com/ubi9/python-312 AS runtime
+USER 0
+WORKDIR /opt/evaluation-dashboard
+COPY backend/requirements.lock ./requirements.lock
+RUN python3 -m pip install --no-cache-dir --require-hashes -r requirements.lock
+COPY backend/app/ ./app/
+COPY --from=frontend /workspace/backend/app/static/ ./app/static/
+RUN chmod -R g=u /opt/evaluation-dashboard
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080
+EXPOSE 8080
+USER 1001
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8080", "--no-access-log"]

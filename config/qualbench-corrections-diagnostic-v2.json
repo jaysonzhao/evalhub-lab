@@ -1,0 +1,111 @@
+{
+  "protocol": "qualbench-release-corrections-diagnostic-v2",
+  "source_repo": "mengze-hong/QualBench",
+  "source_revision": "ca88e81296ecec80ff7bbde1361c50bf0be2cb21",
+  "source_sha256": "24ff03a87ef88ef792f52fff832c53099c9780f18227f9abc7821c6e1b80fba9",
+  "overrides": [
+    {
+      "idx": 1942,
+      "original_question_type": "单选题",
+      "effective_question_type": "multi_choice",
+      "gold": ["A", "B"],
+      "option_labels": ["A", "B", "C"],
+      "reason": "Released record is labeled single-choice but its gold answer contains two labels. The source option block contains A-C; retain the released gold and score as exact-match multi-choice."
+    },
+    {
+      "idx": 1945,
+      "original_question_type": "单选题",
+      "effective_question_type": "multi_choice",
+      "gold": ["B", "C"],
+      "option_labels": ["A", "B", "C"],
+      "reason": "Released record is labeled single-choice but its gold answer contains two labels. The source option block contains A-C; retain the released gold and score as exact-match multi-choice."
+    },
+    {
+      "idx": 8515,
+      "original_question_type": "单选题",
+      "effective_question_type": "multi_choice",
+      "gold": ["A", "B"],
+      "option_labels": ["A", "B", "C", "D"],
+      "reason": "Released record is labeled single-choice but its gold answer contains two labels. The source option block contains A-D; retain the released gold and score as exact-match multi-choice."
+    }
+  ],
+  "exclusions": [
+    {
+      "idx": 4224,
+      "original_question_type": "多选题",
+      "gold": "ABD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 4229,
+      "original_question_type": "多选题",
+      "gold": "ABCD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 4233,
+      "original_question_type": "多选题",
+      "gold": "ABCD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 4234,
+      "original_question_type": "多选题",
+      "gold": "ABCD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 4253,
+      "original_question_type": "多选题",
+      "gold": "ABCD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 4354,
+      "original_question_type": "多选题",
+      "gold": "ACD",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 8131,
+      "original_question_type": "单选题",
+      "gold": "D",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 8132,
+      "original_question_type": "单选题",
+      "gold": "D",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 8133,
+      "original_question_type": "单选题",
+      "gold": "D",
+      "option_labels": ["A", "B", "C"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option D, but the pinned source question contains only A-C options."
+    },
+    {
+      "idx": 14861,
+      "original_question_type": "多选题",
+      "gold": "ABCDEF",
+      "option_labels": ["A", "B", "C", "D", "E"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option F, but the pinned source question contains only A-E options."
+    },
+    {
+      "idx": 15175,
+      "original_question_type": "多选题",
+      "gold": "ACE",
+      "option_labels": ["A", "B", "C", "D"],
+      "reason": "Explicit user-approved diagnostic exclusion: the released gold references option E, but the pinned source question contains only A-D options."
+    }
+  ]
+}

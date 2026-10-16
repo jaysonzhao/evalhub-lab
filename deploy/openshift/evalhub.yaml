@@ -11,3 +11,6 @@ spec:
     secret: evalhub-db-credentials
     maxOpenConns: 20
     maxIdleConns: 5
+  env:
+    - name: MLFLOW_TRACKING_URI
+      value: https://rh-ai.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/mlflow

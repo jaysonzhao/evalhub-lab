@@ -1,0 +1,206 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-evaluation-dashboard-service-ca
+  namespace: evalhub-dashboard
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: model-evaluation-dashboard
+  namespace: evalhub-dashboard
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: model-evaluation-dashboard
+  namespace: evalhub-dashboard
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: model-evaluation-dashboard:latest
+  triggers: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-evaluation-dashboard
+  namespace: evalhub-dashboard
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"model-evaluation-dashboard:latest"},"fieldPath":"spec.template.spec.containers[0].image"}]'
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: model-evaluation-dashboard
+  template:
+    metadata:
+      labels:
+        app: model-evaluation-dashboard
+    spec:
+      serviceAccountName: metrics-dashboard
+      automountServiceAccountToken: true
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: image-registry.openshift-image-registry.svc:5000/evalhub-dashboard/model-evaluation-dashboard:latest
+          imagePullPolicy: Always
+          env:
+            - name: MLFLOW_TRACKING_URI
+              value: https://mlflow.redhat-ods-applications.svc.cluster.local:8443/mlflow
+            - name: MLFLOW_TRACKING_AUTH
+              value: kubernetes-namespaced
+            - name: MLFLOW_WORKSPACE
+              value: evalhub-lab
+            - name: MLFLOW_TRACKING_SERVER_CERT_PATH
+              value: /etc/ca/service-ca.crt
+            - name: EVALHUB_BASE_URL
+              value: https://evalhub.evalhub-lab.svc.cluster.local:8443
+            - name: EVALHUB_TENANT
+              value: evalhub-lab
+            - name: SERVICE_CA_BUNDLE
+              value: /etc/ca/service-ca.crt
+            - name: HOME
+              value: /tmp
+            - name: TMPDIR
+              value: /tmp
+          ports:
+            - name: app-loopback
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: service-ca
+              mountPath: /etc/ca
+              readOnly: true
+            - name: app-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            exec:
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health/live', timeout=2)"]
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            exec:
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health/live', timeout=2)"]
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/health/ready', timeout=2)"]
+            periodSeconds: 10
+        - name: oauth-proxy
+          image: registry.redhat.io/openshift4/ose-oauth-proxy-rhel9:v4.20
+          imagePullPolicy: IfNotPresent
+          args:
+            - --provider=openshift
+            - --https-address=
+            - --http-address=:4180
+            - --openshift-service-account=metrics-dashboard
+            - --cookie-secret-file=/etc/oauth/cookie-secret
+            - --cookie-secure=true
+            - --upstream=http://127.0.0.1:8080/
+            - --email-domain=*
+            - --skip-provider-button
+            - --pass-user-headers=true
+            - --openshift-sar={"verb":"get","resource":"pods","namespace":"evalhub-lab"}
+          ports:
+            - name: public
+              containerPort: 4180
+              protocol: TCP
+          volumeMounts:
+            - name: oauth-cookie
+              mountPath: /etc/oauth
+              readOnly: true
+            - name: proxy-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            tcpSocket:
+              port: public
+            periodSeconds: 10
+      volumes:
+        - name: service-ca
+          configMap:
+            name: model-evaluation-dashboard-service-ca
+        - name: oauth-cookie
+          secret:
+            secretName: model-evaluation-dashboard-oauth
+            defaultMode: 0440
+        - name: app-tmp
+          emptyDir: {}
+        - name: proxy-tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-evaluation-dashboard
+  namespace: evalhub-dashboard
+spec:
+  selector:
+    app: model-evaluation-dashboard
+  ports:
+    - name: proxy
+      port: 4180
+      targetPort: public
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: model-evaluation-dashboard
+  namespace: evalhub-dashboard
+spec:
+  to:
+    kind: Service
+    name: model-evaluation-dashboard
+  port:
+    targetPort: proxy
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

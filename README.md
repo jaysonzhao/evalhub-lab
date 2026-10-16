@@ -54,8 +54,8 @@ The `deploy/openshift` manifests deploy EvalHub and a dedicated PostgreSQL datab
 The default MaaS target for this lab is:
 
 ```text
-MODEL_NAME=publishers/llm/models/gpt-oss-20b
-MODEL_ENDPOINT=https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/v1
+MODEL_NAME=gpt-oss-20b
+MODEL_ENDPOINT=https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b
 ```
 
 Inference also requires a MaaS API key in `MODEL_API_KEY`. An OpenShift login token is for cluster access and cannot be used as the MaaS inference key. See [`deploy/openshift/README.md`](deploy/openshift/README.md) for the isolated service setup.

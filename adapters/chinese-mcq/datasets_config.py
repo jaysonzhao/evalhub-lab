@@ -18,6 +18,7 @@ MMLU_SOURCES = {
         "split": "test",
         "prompt_language": "traditional",
         "expected_subjects": 66,
+        "expected_rows": 26368,
     },
     "tmmluplus": {
         "repo": "syntaxsynth/tmmluplus",
@@ -49,7 +50,14 @@ QUALBENCH_TYPES = {
     "判断题": "judgment",
 }
 
-_OPTION_LINE = re.compile(r"^\s*([A-F])\s*[.．、:：)）]\s*(.*?)\s*$", re.IGNORECASE)
+_OPTION_MARKER = re.compile(
+    r"(?<![A-Za-z])([A-F])(?:\s*[.．、:：)）]\s*|(?=\s|[\u4e00-\u9fff(（]))",
+    re.IGNORECASE,
+)
+_OPTION_LINE_START = re.compile(
+    r"^\s*(?:[.．、:：]\s*)?([A-F])(?:\s*[.．、:：)）]\s*|(?=\s|[\u4e00-\u9fff(（]|$))",
+    re.IGNORECASE,
+)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -79,7 +87,7 @@ def normalize_mmlu_row(dataset: str, subject: str, source_row: int, raw: dict[st
         raise ValueError(f"Invalid gold label {answer!r} at {dataset}/{subject}/{source_row}")
     return {
         "dataset": dataset,
-        "id": f"{dataset}/{subject}/{source_row}",
+        "id": f"{dataset}/{subject}/test/{source_row}",
         "source_row": source_row,
         "source_split": "test",
         "question": question,
@@ -92,30 +100,40 @@ def normalize_mmlu_row(dataset: str, subject: str, source_row: int, raw: dict[st
 
 
 def extract_option_inventory(question: str, required_labels: list[str] | None = None) -> list[str]:
-    """Find the final sequential option block, allowing multi-line choice text.
+    """Find option labels in the final contiguous option block.
 
-    Case stems can contain their own A/B/C headings. Candidate blocks are
-    considered from the end of the question backwards, and the gold labels
-    must be present in the selected block.
+    QualBench includes legacy records with options split across lines, labels
+    fused to a preceding option, non-sequential order, and a label embedded at
+    the end of the stem. Restrict marker scanning to the trailing option-like
+    lines so case text earlier in a question is not mistaken for choices.
     """
-    lines = question.rstrip().splitlines()
-    matches: list[str] = []
-    for line in lines:
-        match = _OPTION_LINE.match(line)
-        if match:
-            matches.append(match.group(1).upper())
-    required = set(required_labels or [])
-    for start in range(len(matches) - 1, -1, -1):
-        if matches[start] != "A":
-            continue
-        labels: list[str] = []
-        for label in matches[start:]:
-            expected = chr(ord("A") + len(labels))
-            if label != expected or expected > "F":
+    suffix: list[tuple[str, bool]] = []
+    continuation_lines = 0
+    for line in reversed(question.rstrip().splitlines()):
+        if not line.strip():
+            if suffix:
                 break
-            labels.append(label)
-        if len(labels) >= 2 and required.issubset(labels):
-            return labels
+            continue
+        if _OPTION_LINE_START.search(line):
+            suffix.append((line, True))
+            continuation_lines = 0
+        elif continuation_lines < 2:
+            # Some exported rows split a choice label and its text over lines.
+            suffix.append((line, False))
+            continuation_lines += 1
+        else:
+            break
+    labels: list[str] = []
+    for line, is_option_line in reversed(suffix):
+        if not is_option_line:
+            continue
+        for match in _OPTION_MARKER.finditer(line):
+            label = match.group(1).upper()
+            if label not in labels:
+                labels.append(label)
+    required = set(required_labels or [])
+    if len(labels) >= 2 and required.issubset(labels):
+        return labels
     return []
 
 
@@ -152,6 +170,7 @@ def normalize_qualbench_rows(
     if corrections.get("source_sha256") != QUALBENCH_FILE_SHA256:
         raise ValueError("QualBench correction file targets a different source revision")
     overrides = {str(item["idx"]): item for item in corrections.get("overrides", [])}
+    exclusions = {str(item["idx"]): item for item in corrections.get("exclusions", [])}
     raw_rows = json.loads(source_bytes)
     if not isinstance(raw_rows, list) or len(raw_rows) != 17316:
         raise ValueError(f"Unexpected QualBench row count: {len(raw_rows) if isinstance(raw_rows, list) else 'not a list'}")
@@ -159,9 +178,11 @@ def normalize_qualbench_rows(
     rows: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     questions = Counter()
-    original_counts = Counter()
     effective_counts = Counter()
     anomaly_ids = {"1942", "1945", "8515"}
+    expected_exclusion_ids = {"4224", "4229", "4233", "4234", "4253", "4354", "8131", "8132", "8133", "14861", "15175"}
+    excluded_records: list[dict[str, Any]] = []
+    source_counts = Counter()
     for position, raw in enumerate(raw_rows):
         idx = str(raw.get("idx", ""))
         item_id = f"qualbench/{idx}"
@@ -178,7 +199,9 @@ def normalize_qualbench_rows(
         if original_type_name not in QUALBENCH_TYPES:
             raise ValueError(f"Unknown QualBench type at {item_id}: {original_type_name!r}")
         original_type = QUALBENCH_TYPES[original_type_name]
+        source_counts[(domain, original_type)] += 1
         override = overrides.get(idx)
+        exclusion = exclusions.get(idx)
         effective_type = original_type
         if override:
             if override.get("original_question_type") != original_type_name:
@@ -191,6 +214,29 @@ def normalize_qualbench_rows(
 
         answer_text = unicodedata.normalize("NFKC", str(raw.get("answer", ""))).strip().upper()
         required_labels = list(dict.fromkeys(re.findall(r"[A-F]", answer_text)))
+        # The explicitly approved diagnostic exclusion must be audited against the
+        # source as published before it can be removed from the scored corpus.
+        if exclusion:
+            actual_inventory = extract_option_inventory(question)
+            expected_gold = str(exclusion.get("gold", "")).upper()
+            if (
+                exclusion.get("original_question_type") != original_type_name
+                or answer_text != expected_gold
+                or actual_inventory != exclusion.get("option_labels")
+                or not any(label not in actual_inventory for label in expected_gold)
+                or not exclusion.get("reason")
+            ):
+                raise ValueError(f"Approved exclusion source audit changed at {item_id}")
+            excluded_records.append({
+                "id": item_id,
+                "source_row": position,
+                "original_question_type": original_type_name,
+                "gold": answer_text,
+                "option_labels": actual_inventory,
+                "reason": exclusion["reason"],
+            })
+            questions[question] += 1
+            continue
         option_labels = [] if effective_type == "judgment" else extract_option_inventory(question, required_labels)
         if effective_type != "judgment" and not option_labels:
             raise ValueError(f"Could not validate a final option block at {item_id}")
@@ -213,21 +259,32 @@ def normalize_qualbench_rows(
             "explanation": raw.get("explanation") or "",
             "correction_manifest_sha256": correction_sha,
         })
-        original_counts[(domain, original_type)] += 1
         effective_counts[(domain, effective_type)] += 1
         questions[question] += 1
 
     if set(overrides) != anomaly_ids:
         raise ValueError(f"Correction file must explicitly resolve exactly the known anomalies: {sorted(anomaly_ids)}")
+    if set(exclusions) != expected_exclusion_ids or expected_exclusion_ids.intersection(overrides):
+        raise ValueError(f"Correction file must explicitly exclude exactly the approved diagnostic IDs: {sorted(expected_exclusion_ids)}")
+    evaluated_counts = Counter()
+    for row in rows:
+        evaluated_counts[(row["domain"], row["question_type"])] += 1
     audit = {
         "rows": len(rows),
+        "source_rows": len(raw_rows),
+        "evaluated_rows": len(rows),
         "unique_ids": len(seen_ids),
         "duplicate_question_strings": sum(1 for count in questions.values() if count > 1),
         "repeated_question_rows_after_first": sum(count - 1 for count in questions.values() if count > 1),
-        "original_domain_type_counts": {f"{d}|{t}": n for (d, t), n in sorted(original_counts.items())},
+        "original_domain_type_counts": {f"{d}|{t}": n for (d, t), n in sorted(source_counts.items())},
         "effective_domain_type_counts": {f"{d}|{t}": n for (d, t), n in sorted(effective_counts.items())},
+        "source_domain_type_counts": {f"{d}|{t}": n for (d, t), n in sorted(source_counts.items())},
+        "evaluated_domain_type_counts": {f"{d}|{t}": n for (d, t), n in sorted(evaluated_counts.items())},
         "correction_manifest_sha256": correction_sha,
         "corrected_ids": sorted(f"qualbench/{idx}" for idx in overrides),
+        "excluded_ids": sorted(record["id"] for record in excluded_records),
+        "excluded_records": excluded_records,
+        "evaluation_label": "QualBench diagnostic subset (eleven explicitly user-approved source anomalies excluded)",
     }
     return rows, audit
 
