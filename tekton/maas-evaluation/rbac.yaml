@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: maas-eval-runner
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/part-of: evalhub-lab
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: maas-eval-runner
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/part-of: evalhub-lab
+rules:
+  - apiGroups: [trustyai.opendatahub.io]
+    resources: [evaluations]
+    verbs: [get, list, create]
+  - apiGroups: [trustyai.opendatahub.io]
+    resources: [providers]
+    verbs: [get, list]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [maas-eval-ledger]
+    verbs: [get, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: maas-eval-runner
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/part-of: evalhub-lab
+subjects:
+  - kind: ServiceAccount
+    name: maas-eval-runner
+    namespace: __PIPELINE_NAMESPACE__
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: maas-eval-runner

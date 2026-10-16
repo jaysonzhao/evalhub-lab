@@ -1,0 +1,24 @@
+{
+  "evalhub_url": "https://evalhub-evalhub-lab.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com",
+  "tenant": "evalhub-lab",
+  "provider_id": "chinese-mcq-v2",
+  "approved_endpoint_prefixes": [
+    "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b"
+  ],
+  "endpoint_secret_bindings": [
+    {
+      "endpoint_prefix": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b",
+      "secret_names": [],
+      "secret_name_patterns": ["maas-gpt-oss-20b-[0-9a-f]{12}"]
+    }
+  ],
+  "test_data_refs": {
+    "hkmmlu": {"s3": {"bucket": "REPLACE_WITH_BUCKET", "key": "REPLACE_WITH_VERSIONED_PREFIX", "secret_ref": "REPLACE_WITH_TENANT_S3_SECRET"}},
+    "tmmluplus": {"s3": {"bucket": "REPLACE_WITH_BUCKET", "key": "REPLACE_WITH_VERSIONED_PREFIX", "secret_ref": "REPLACE_WITH_TENANT_S3_SECRET"}},
+    "cmmlu": {"s3": {"bucket": "REPLACE_WITH_BUCKET", "key": "REPLACE_WITH_VERSIONED_PREFIX", "secret_ref": "REPLACE_WITH_TENANT_S3_SECRET"}},
+    "qualbench": {"s3": {"bucket": "REPLACE_WITH_BUCKET", "key": "REPLACE_WITH_VERSIONED_PREFIX", "secret_ref": "REPLACE_WITH_TENANT_S3_SECRET"}}
+  },
+  "wait_deadlines_seconds": {"smoke": 5400, "coverage": 21600, "full": 144000},
+  "poll_seconds": 15,
+  "quality_thresholds": {}
+}

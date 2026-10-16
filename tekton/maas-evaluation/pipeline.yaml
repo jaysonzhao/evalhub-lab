@@ -1,0 +1,96 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: maas-evaluation
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/part-of: evalhub-lab
+spec:
+  description: Submit one EvalHub job per selected Chinese MCQ benchmark, collect MLflow links, and gate the results.
+  params:
+    - name: maas-endpoint
+      type: string
+      description: Approved HTTPS OpenAI-compatible MaaS base URL.
+    - name: model-secret-name
+      type: string
+      description: Tenant Secret name containing api-key; the key value is never a Tekton parameter.
+    - name: model-name
+      type: string
+      description: Explicit served model identifier.
+    - name: profile
+      type: string
+      description: smoke, coverage, or full; full QualBench is disabled.
+      default: smoke
+    - name: datasets
+      type: array
+      description: Benchmark IDs to evaluate. Choose one or more; selection is independent of profile.
+      default: [hkmmlu]
+  workspaces:
+    - name: results
+      description: Shared per-PipelineRun checkpoint and summary workspace.
+  results:
+    - name: job-ids
+      value: $(tasks.submit.results.job-ids)
+    - name: mlflow-links
+      value: $(tasks.collect.results.mlflow-links)
+    - name: bundle-digest
+      value: $(tasks.collect.results.bundle-digest)
+    - name: gate-outcome
+      value: $(tasks.gate.results.outcome)
+  tasks:
+    - name: preflight
+      taskRef:
+        name: maas-eval-preflight
+      params:
+        - name: maas-endpoint
+          value: $(params.maas-endpoint)
+        - name: model-secret-name
+          value: $(params.model-secret-name)
+        - name: model-name
+          value: $(params.model-name)
+        - name: profile
+          value: $(params.profile)
+        - name: datasets
+          value: $(params.datasets)
+      workspaces:
+        - name: results
+          workspace: results
+    - name: submit
+      runAfter: [preflight]
+      retries: 0
+      taskRef:
+        name: maas-eval-submit
+      params:
+        - name: datasets
+          value: $(params.datasets)
+      workspaces:
+        - name: results
+          workspace: results
+    - name: wait
+      runAfter: [submit]
+      taskRef:
+        name: maas-eval-wait
+      workspaces:
+        - name: results
+          workspace: results
+    - name: collect
+      runAfter: [wait]
+      taskRef:
+        name: maas-eval-collect
+      workspaces:
+        - name: results
+          workspace: results
+    - name: gate
+      runAfter: [collect]
+      taskRef:
+        name: maas-eval-gate
+      workspaces:
+        - name: results
+          workspace: results
+  finally:
+    - name: diagnostics
+      taskRef:
+        name: maas-eval-diagnostics
+      workspaces:
+        - name: results
+          workspace: results

@@ -1,0 +1,35 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: maas-eval-
+  namespace: evalhub-lab
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  pipelineRef:
+    name: maas-evaluation
+  taskRunTemplate:
+    serviceAccountName: maas-eval-runner
+  params:
+    - name: maas-endpoint
+      value: https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b
+    - name: model-secret-name
+      value: REPLACE_WITH_APPROVED_TENANT_SECRET
+    - name: model-name
+      value: gpt-oss-20b
+    - name: profile
+      value: smoke
+    - name: datasets
+      value: [hkmmlu, tmmluplus, cmmlu, qualbench]
+  workspaces:
+    - name: results
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 1Gi
+  timeouts:
+    pipeline: 2h15m
+    tasks: 2h
+    finally: 15m

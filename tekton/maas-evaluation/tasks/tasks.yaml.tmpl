@@ -1,0 +1,299 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-preflight
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  params:
+    - name: maas-endpoint
+      type: string
+    - name: model-secret-name
+      type: string
+    - name: model-name
+      type: string
+    - name: profile
+      type: string
+    - name: datasets
+      type: array
+  workspaces:
+    - name: results
+  results:
+    - name: profile-hash
+      description: Hash of the frozen model, profile, dataset selection, and data manifest.
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: preflight
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args:
+        - preflight
+        - --endpoint
+        - $(params.maas-endpoint)
+        - --model-secret-name
+        - $(params.model-secret-name)
+        - --model-name
+        - $(params.model-name)
+        - --profile
+        - $(params.profile)
+        - --dataset
+        - $(params.datasets[*])
+        - --result-path
+        - $(results.profile-hash.path)
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-submit
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  params:
+    - name: datasets
+      type: array
+  workspaces:
+    - name: results
+  results:
+    - name: job-ids
+      description: Selected benchmark IDs and accepted EvalHub job IDs; secrets are excluded.
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: submit
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args:
+        - submit
+        - --dataset
+        - "$(params.datasets[*])"
+        - --job-ids-result
+        - $(results.job-ids.path)
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-wait
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  workspaces:
+    - name: results
+  results:
+    - name: terminal-summary
+      description: Sanitized per-dataset EvalHub terminal states.
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: wait
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args: [wait, --wait-result, $(results.terminal-summary.path)]
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-collect
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  workspaces:
+    - name: results
+  results:
+    - name: mlflow-links
+      description: Per-dataset job IDs and source-returned MLflow links.
+    - name: bundle-digest
+      description: SHA-256 of the summary-only dashboard export in the results workspace.
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: collect
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args:
+        - collect
+        - --links-result
+        - $(results.mlflow-links.path)
+        - --bundle-digest-result
+        - $(results.bundle-digest.path)
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-gate
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  workspaces:
+    - name: results
+  results:
+    - name: outcome
+      description: Passed or failed after execution, data-quality, artifact, and configured model-quality checks.
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: gate
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args: [gate, --outcome-result, $(results.outcome.path)]
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maas-eval-diagnostics
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+spec:
+  workspaces:
+    - name: results
+  volumes:
+    - name: runner-config
+      configMap:
+        name: maas-evaluation-runtime
+  steps:
+    - name: diagnostics
+      image: __RUNNER_IMAGE__
+      imagePullPolicy: IfNotPresent
+      command: [python3, /opt/maas-evaluation/runner/cli.py]
+      args: [diagnostics]
+      env:
+        - name: RESULTS_DIR
+          value: $(workspaces.results.path)
+        - name: RUNTIME_CONFIG
+          value: /etc/maas-evaluation/runtime.json
+        - name: DATA_PROFILE_PATH
+          value: /etc/maas-evaluation/dataset-profile.json
+        - name: PIPELINE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEDGER_REQUIRED
+          value: "true"
+        - name: PIPELINE_RUN_UID
+          value: $(context.pipelineRun.uid)
+        - name: PIPELINE_RUN_NAME
+          value: $(context.pipelineRun.name)
+      volumeMounts:
+        - name: runner-config
+          mountPath: /etc/maas-evaluation
+          readOnly: true

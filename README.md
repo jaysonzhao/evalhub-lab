@@ -60,7 +60,7 @@ MODEL_ENDPOINT=https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/
 
 Inference also requires a MaaS API key in `MODEL_API_KEY`. An OpenShift login token is for cluster access and cannot be used as the MaaS inference key. See [`deploy/openshift/README.md`](deploy/openshift/README.md) for the isolated service setup.
 
-Chinese MCQ data preparation is currently gated on an inconsistency in the pinned QualBench release; see [`adapters/chinese-mcq/PREFLIGHT.md`](adapters/chinese-mcq/PREFLIGHT.md). The EvalHub service is deployed, but no Chinese MCQ provider or evaluation has been registered or run yet.
+QualBench is enabled only as the approved diagnostic subset with the documented source anomalies excluded; full QualBench remains disabled. See [`adapters/chinese-mcq/PREFLIGHT.md`](adapters/chinese-mcq/PREFLIGHT.md) for the pinned data policy. The separate manual Tekton workflow is documented in [`tekton/maas-evaluation/README.md`](tekton/maas-evaluation/README.md); these versioned assets do not by themselves confirm a live provider registration or cluster deployment.
 
 ## What's Included
 

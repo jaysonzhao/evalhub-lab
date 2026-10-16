@@ -1,0 +1,12 @@
+ARG PYTHON_BASE_IMAGE
+FROM ${PYTHON_BASE_IMAGE}
+
+USER 0
+WORKDIR /opt/maas-evaluation
+COPY runner/ /opt/maas-evaluation/runner/
+COPY requirements.lock /opt/maas-evaluation/requirements.lock
+RUN chmod -R a+rX /opt/maas-evaluation
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+USER 1001
+ENTRYPOINT ["python3", "/opt/maas-evaluation/runner/cli.py"]

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maas-eval-ledger
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/managed-by: maas-eval-deployer

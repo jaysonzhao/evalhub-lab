@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://evalhub-lab.invalid/schemas/maas-eval-data-profile.v1.json",
+  "title": "Prepared Chinese MCQ data profile",
+  "type": "object",
+  "required": ["schema_version", "provider_id", "protocol", "manifest_sha256", "source_manifest", "datasets"],
+  "properties": {
+    "schema_version": {"const": "maas-eval-data-profile.v1"},
+    "provider_id": {"type": "string", "minLength": 1},
+    "protocol": {"type": "string", "minLength": 1},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "source_manifest": {"type": "object"},
+    "datasets": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "hkmmlu": {"$ref": "#/$defs/mmluDataset"},
+        "tmmluplus": {"$ref": "#/$defs/mmluDataset"},
+        "cmmlu": {"$ref": "#/$defs/mmluDataset"},
+        "qualbench": {"$ref": "#/$defs/qualbenchDataset"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commonDataset": {
+      "type": "object",
+      "required": ["row_count", "coverage_unit_count", "manifest_sha256", "canonical_jsonl_sha256", "source_revision", "evaluation_label"],
+      "properties": {
+        "row_count": {"type": "integer", "minimum": 1},
+        "coverage_unit_count": {"type": "integer", "minimum": 1},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "canonical_jsonl_sha256": {"$ref": "#/$defs/sha256"},
+        "source_revision": {"type": "string", "minLength": 1},
+        "evaluation_label": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "mmluDataset": {"$ref": "#/$defs/commonDataset"},
+    "qualbenchDataset": {
+      "allOf": [
+        {"$ref": "#/$defs/commonDataset"},
+        {
+          "type": "object",
+          "required": ["source_row_count", "correction_manifest_sha256", "audit"],
+          "properties": {
+            "row_count": {"const": 17305},
+            "coverage_unit_count": {"const": 17},
+            "source_row_count": {"const": 17316},
+            "correction_manifest_sha256": {"const": "17bdc1f3d4814b763a1801bf04aa8c934e2c27ea9f05c5a97aad8ea2cc2eee8d"},
+            "evaluation_label": {"const": "QualBench diagnostic subset (eleven explicitly user-approved source anomalies excluded)"},
+            "audit": {
+              "type": "object",
+              "required": ["source_rows", "evaluated_rows", "excluded_ids", "observed_strata"],
+              "properties": {
+                "source_rows": {"const": 17316},
+                "evaluated_rows": {"const": 17305},
+                "excluded_ids": {
+                  "const": ["qualbench/14861", "qualbench/15175", "qualbench/4224", "qualbench/4229", "qualbench/4233", "qualbench/4234", "qualbench/4253", "qualbench/4354", "qualbench/8131", "qualbench/8132", "qualbench/8133"]
+                },
+                "observed_strata": {"type": "object", "minProperties": 1}
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
