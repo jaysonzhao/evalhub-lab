@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAMESPACE="${NAMESPACE:-evalhub-lab}"
 DATA_PVC_SIZE="${DATA_PVC_SIZE:-2Gi}"
 DATA_PVC_ACCESS_MODE="${DATA_PVC_ACCESS_MODE:-ReadWriteMany}"
@@ -10,10 +11,10 @@ RENDERED="$(mktemp -d)"
 trap 'rm -rf "$RENDERED"' EXIT
 export NAMESPACE DATA_PVC_SIZE DATA_PVC_ACCESS_MODE DATASET_IMAGE
 
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/dataset-pvc.yaml" "$RENDERED/dataset-pvc.yaml"
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/dataset-loader-job.yaml" "$RENDERED/dataset-loader-job.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/dataset-pvc.yaml" "$RENDERED/dataset-pvc.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/dataset-loader-job.yaml" "$RENDERED/dataset-loader-job.yaml"
 oc apply -f "$RENDERED/dataset-pvc.yaml"
 
 if oc get job chinese-benchmark-data-loader -n "$NAMESPACE" >/dev/null 2>&1; then

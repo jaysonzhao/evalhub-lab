@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
 NAMESPACE="${NAMESPACE:-evalhub-lab}"
 POSTGRES_IMAGE="${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to the pushed internal PostgreSQL image}"
 DASHBOARD_IMAGE="${DASHBOARD_IMAGE:?Set DASHBOARD_IMAGE to the pushed dashboard image}"
@@ -24,17 +26,17 @@ if [[ "$NAMESPACE" != "evalhub-lab" ]]; then
   exit 2
 fi
 
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/evalhub-namespace.yaml" "$RENDERED/evalhub-namespace.yaml"
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/postgres.yaml" "$RENDERED/postgres.yaml"
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/evalhub.yaml" "$RENDERED/evalhub.yaml"
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/dashboard.yaml" "$RENDERED/dashboard.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/evalhub-namespace.yaml" "$RENDERED/evalhub-namespace.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/postgres.yaml" "$RENDERED/postgres.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/evalhub.yaml" "$RENDERED/evalhub.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/dashboard.yaml" "$RENDERED/dashboard.yaml"
 
 oc apply -f "$RENDERED/evalhub-namespace.yaml"
-oc apply -f "$ROOT/disconnected/manifests/dashboard-namespace.yaml"
+oc apply -f "$SKILL_DIR/manifests/dashboard-namespace.yaml"
 for secret in evalhub-postgres-credentials evalhub-db-credentials; do
   if ! oc get secret "$secret" -n "$NAMESPACE" >/dev/null 2>&1; then
     echo "Create namespace-local Secret $secret before installing the database and EvalHub." >&2

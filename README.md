@@ -62,6 +62,8 @@ Inference also requires a MaaS API key in `MODEL_API_KEY`. An OpenShift login to
 
 QualBench is enabled only as the approved diagnostic subset with the documented source anomalies excluded; full QualBench remains disabled. See [`adapters/chinese-mcq/PREFLIGHT.md`](adapters/chinese-mcq/PREFLIGHT.md) for the pinned data policy. The separate manual Tekton workflow is documented in [`tekton/maas-evaluation/README.md`](tekton/maas-evaluation/README.md); these versioned assets do not by themselves confirm a live provider registration or cluster deployment.
 
+For disconnected deployments, use the [`evalhub-disconnected-deployment` skill](.cursor/skills/evalhub-disconnected-deployment/SKILL.md) and its [deployment guide](.cursor/skills/evalhub-disconnected-deployment/README.md). The bundle stages datasets and images on a connected host, transfers checksummed artifacts, and installs from an internal registry and PVC without cluster-side public downloads.
+
 ## What's Included
 
 ### 0. Setup

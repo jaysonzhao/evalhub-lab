@@ -10,7 +10,8 @@ import sys
 from pathlib import Path
 from string import Template
 
-ROOT = Path(__file__).resolve().parents[2]
+SKILL_DIR = Path(__file__).resolve().parents[1]
+ROOT = SKILL_DIR.parents[2]
 
 
 def main() -> None:

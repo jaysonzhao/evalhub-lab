@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${OUTPUT_DIR:-$ROOT/disconnected/artifacts}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+OUT="${OUTPUT_DIR:-$SKILL_DIR/artifacts}"
 REGISTRY="${IMAGE_REGISTRY:?Set IMAGE_REGISTRY, for example registry.internal.example:5000}"
 NAMESPACE="${IMAGE_NAMESPACE:?Set IMAGE_NAMESPACE to the registry project/repository prefix}"
 TAG="${IMAGE_TAG:?Set IMAGE_TAG to the value used by build-and-export.sh}"

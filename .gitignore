@@ -3,9 +3,12 @@
 __pycache__/
 *.pyc
 .DS_Store
-.cursor/
+.cursor/*
+!.cursor/skills/
+.cursor/skills/*
+!.cursor/skills/evalhub-disconnected-deployment/
 .lola/
-disconnected/artifacts/
-disconnected/work/
-disconnected/config/runtime.json
-disconnected/config/dataset-profile.json
+.cursor/skills/evalhub-disconnected-deployment/artifacts/
+.cursor/skills/evalhub-disconnected-deployment/work/
+.cursor/skills/evalhub-disconnected-deployment/config/runtime.json
+.cursor/skills/evalhub-disconnected-deployment/config/dataset-profile.json

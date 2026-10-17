@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${OUTPUT_DIR:-$ROOT/disconnected/artifacts}"
-WORK="${WORK_DIR:-$ROOT/disconnected/work}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+OUT="${OUTPUT_DIR:-$SKILL_DIR/artifacts}"
+WORK="${WORK_DIR:-$SKILL_DIR/work}"
 TAG="${IMAGE_TAG:-$(git -C "$ROOT" rev-parse --short=12 HEAD)}"
 PYTHON_311_BASE_IMAGE="${PYTHON_311_BASE_IMAGE:-registry.access.redhat.com/ubi9/python-311:latest}"
 PYTHON_312_BASE_IMAGE="${PYTHON_312_BASE_IMAGE:-registry.access.redhat.com/ubi9/python-312:latest}"
@@ -28,14 +30,14 @@ DASHBOARD_IMAGE="localhost/evalhub-offline/model-evaluation-dashboard:$TAG"
 POSTGRES_IMAGE="localhost/evalhub-offline/evalhub-postgres:$TAG"
 OAUTH_IMAGE="localhost/evalhub-offline/ose-oauth-proxy:$TAG"
 
-python3 "$ROOT/disconnected/scripts/fetch_dataset_sources.py" --output-dir "$SOURCE_CACHE"
+python3 "$SKILL_DIR/scripts/fetch_dataset_sources.py" --output-dir "$SOURCE_CACHE"
 python3 "$ROOT/adapters/chinese-mcq/prepare_datasets.py" \
   --source-dir "$SOURCE_CACHE" --output-dir "$PREPARED_DATA"
 
 rm -rf "$DATA_CONTEXT"
 mkdir -p "$DATA_CONTEXT/data"
 cp "$PREPARED_DATA"/*.jsonl "$PREPARED_DATA"/manifest.json "$PREPARED_DATA"/manifest.sha256 "$DATA_CONTEXT/data/"
-cp "$ROOT/disconnected/images/dataset-bundle/loader.py" "$DATA_CONTEXT/loader.py"
+cp "$SKILL_DIR/images/dataset-bundle/loader.py" "$DATA_CONTEXT/loader.py"
 
 podman build \
   --build-arg "PYTHON_311_BASE_IMAGE=$PYTHON_311_BASE_IMAGE" \
@@ -43,7 +45,7 @@ podman build \
   --build-arg "NODE_22_BASE_IMAGE=$NODE_22_BASE_IMAGE" \
   --platform "$TARGET_PLATFORM" \
   --target chinese-mcq-adapter \
-  -f "$ROOT/disconnected/images/Containerfile.components" \
+  -f "$SKILL_DIR/images/Containerfile.components" \
   -t "$ADAPTER_IMAGE" "$ROOT"
 podman build \
   --build-arg "PYTHON_311_BASE_IMAGE=$PYTHON_311_BASE_IMAGE" \
@@ -51,12 +53,12 @@ podman build \
   --build-arg "NODE_22_BASE_IMAGE=$NODE_22_BASE_IMAGE" \
   --platform "$TARGET_PLATFORM" \
   --target maas-eval-runner \
-  -f "$ROOT/disconnected/images/Containerfile.components" \
+  -f "$SKILL_DIR/images/Containerfile.components" \
   -t "$RUNNER_IMAGE" "$ROOT"
 podman build \
   --build-arg "PYTHON_BASE_IMAGE=$PYTHON_311_BASE_IMAGE" \
   --platform "$TARGET_PLATFORM" \
-  -f "$ROOT/disconnected/images/dataset-bundle/Containerfile" \
+  -f "$SKILL_DIR/images/dataset-bundle/Containerfile" \
   -t "$DATASET_IMAGE" "$DATA_CONTEXT"
 podman build \
   --build-arg "PYTHON_311_BASE_IMAGE=$PYTHON_311_BASE_IMAGE" \
@@ -64,7 +66,7 @@ podman build \
   --build-arg "NODE_22_BASE_IMAGE=$NODE_22_BASE_IMAGE" \
   --platform "$TARGET_PLATFORM" \
   --target model-evaluation-dashboard \
-  -f "$ROOT/disconnected/images/Containerfile.components" \
+  -f "$SKILL_DIR/images/Containerfile.components" \
   -t "$DASHBOARD_IMAGE" "$ROOT"
 
 # These platform-side images are not built by this repository. Pull them on

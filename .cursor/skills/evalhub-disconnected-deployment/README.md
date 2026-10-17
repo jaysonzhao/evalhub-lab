@@ -18,10 +18,10 @@ IMAGE_TAG="$(git rev-parse --short=12 HEAD)" \
 PYTHON_311_BASE_IMAGE='registry.access.redhat.com/ubi9/python-311@sha256:<approved-digest>' \
 PYTHON_312_BASE_IMAGE='registry.access.redhat.com/ubi9/python-312@sha256:<approved-digest>' \
 NODE_22_BASE_IMAGE='registry.access.redhat.com/ubi9/nodejs-22@sha256:<approved-digest>' \
-./disconnected/scripts/build-and-export.sh
+./.cursor/skills/evalhub-disconnected-deployment/scripts/build-and-export.sh
 ```
 
-`build-and-export.sh` fetches only the pinned test files selected by the dataset prep code. It writes a source cache with `source-manifest.json`, runs the existing normalization and QualBench diagnostic corrections using `--source-dir`, builds the four project images, pulls and packages the PostgreSQL/OAuth images, and writes checksums to `disconnected/artifacts/`. Set `POSTGRES_SOURCE_IMAGE` and `OAUTH_SOURCE_IMAGE` to the site's approved, preferably digest-pinned source images when building the archive. To prepare data from a cache already transferred to an offline workstation, install `pyarrow` from the site's wheel mirror and run:
+`build-and-export.sh` fetches only the pinned test files selected by the dataset prep code. It writes a source cache with `source-manifest.json`, runs the existing normalization and QualBench diagnostic corrections using `--source-dir`, builds the four project images, pulls and packages the PostgreSQL/OAuth images, and writes checksums to `.cursor/skills/evalhub-disconnected-deployment/artifacts/`. Set `POSTGRES_SOURCE_IMAGE` and `OAUTH_SOURCE_IMAGE` to the site's approved, preferably digest-pinned source images when building the archive. To prepare data from a cache already transferred to an offline workstation, install `pyarrow` from the site's wheel mirror and run:
 
 ```sh
 python3 adapters/chinese-mcq/prepare_datasets.py \
@@ -31,7 +31,7 @@ python3 adapters/chinese-mcq/prepare_datasets.py \
 
 The offline source cache uses `owner__repo/<pinned-revision>/<repository-path>` plus a SHA-256 manifest. `prepare_datasets.py --source-dir ...` verifies each source file before reading it and makes no outbound request. Without `--source-dir`, the existing online download behavior remains the default.
 
-Copy the following from `disconnected/artifacts/` to the disconnected registry workstation using your approved transfer process:
+Copy the following from `.cursor/skills/evalhub-disconnected-deployment/artifacts/` to the disconnected registry workstation using your approved transfer process:
 
 - `images.oci.tar`
 - `source-code.tar.gz` (contains the exact committed repository source)
@@ -43,13 +43,13 @@ Copy the following from `disconnected/artifacts/` to the disconnected registry w
 
 `source-cache.tar.gz` is useful when the disconnected environment must re-prepare the normalized data. Do not place API keys, OpenShift tokens, kubeconfigs, or database passwords in the transfer bundle.
 
-Extract the committed source bundle on the disconnected workstation, place the other transferred files in its ignored `disconnected/artifacts/` folder, and run setup commands from `evalhub-lab/`:
+Extract the committed source bundle on the disconnected workstation, place the other transferred files in its ignored `.cursor/skills/evalhub-disconnected-deployment/artifacts/` folder, and run setup commands from `evalhub-lab/`:
 
 ```sh
 tar -xzf source-code.tar.gz
-mkdir -p evalhub-lab/disconnected/artifacts
+mkdir -p evalhub-lab/.cursor/skills/evalhub-disconnected-deployment/artifacts
 cp images.oci.tar source-cache.tar.gz prepared-data.tar.gz dataset-manifest.json dataset-manifest.sha256 images.txt SHA256SUMS \
-  evalhub-lab/disconnected/artifacts/
+  evalhub-lab/.cursor/skills/evalhub-disconnected-deployment/artifacts/
 cd evalhub-lab
 ```
 
@@ -63,14 +63,14 @@ On the registry workstation, verify transfer checksums and log in to the approve
 IMAGE_TAG='<the tag selected on the staging host>' \
 IMAGE_REGISTRY='registry.internal.example:5000' \
 IMAGE_NAMESPACE='evalhub-lab' \
-./disconnected/scripts/push-images.sh
+./.cursor/skills/evalhub-disconnected-deployment/scripts/push-images.sh
 ```
 
-The script loads the OCI archive, retags and pushes all six images, then records pushed tags and immutable digests in `disconnected/artifacts/pushed/images.env`. Make sure the OpenShift service accounts can pull from this registry, or create the site's image-pull Secrets before deploying. Load the generated values into the shell for the install scripts:
+The script loads the OCI archive, retags and pushes all six images, then records pushed tags and immutable digests in `.cursor/skills/evalhub-disconnected-deployment/artifacts/pushed/images.env`. Make sure the OpenShift service accounts can pull from this registry, or create the site's image-pull Secrets before deploying. Load the generated values into the shell for the install scripts:
 
 ```sh
 set -a
-source disconnected/artifacts/pushed/images.env
+source .cursor/skills/evalhub-disconnected-deployment/artifacts/pushed/images.env
 set +a
 export POSTGRES_IMAGE="$EVALHUB_POSTGRES_IMAGE"
 export DASHBOARD_IMAGE="$MODEL_EVALUATION_DASHBOARD_IMAGE"
@@ -82,7 +82,7 @@ export PIPELINE_RUNNER_IMAGE="$MAAS_EVAL_RUNNER_DIGEST_REF"
 Create both namespaces before provisioning Secrets:
 
 ```sh
-./disconnected/scripts/bootstrap-namespaces.sh
+./.cursor/skills/evalhub-disconnected-deployment/scripts/bootstrap-namespaces.sh
 ```
 
 Create these namespace-local Secrets through the site's secret-management process:
@@ -97,7 +97,7 @@ export MLFLOW_TRACKING_URI='https://<internal-mlflow-service>:8443/mlflow'
 export DASHBOARD_MLFLOW_TRACKING_URI="$MLFLOW_TRACKING_URI"
 export EVALHUB_BASE_URL='https://evalhub.evalhub-lab.svc.cluster.local:8443'
 export MAAS_ENDPOINT='https://<internal-maas-gateway>'
-./disconnected/scripts/install-core.sh
+./.cursor/skills/evalhub-disconnected-deployment/scripts/install-core.sh
 ```
 
 `install-core.sh` applies the namespace, PostgreSQL, EvalHub custom resource, dashboard, and dashboard source-access RBAC. It expects the EvalHub CRD and MLflow authorization ClusterRole to exist already. It checks for the three named Secrets; it does not create or print secret values. The database URL must reference the local PostgreSQL Service. `MLFLOW_TRACKING_URI` and `DASHBOARD_MLFLOW_TRACKING_URI` must use internal addresses and the site's trusted CA chain.
@@ -106,8 +106,8 @@ Register the rendered adapter definition with the site's EvalHub provider regist
 
 ```sh
 export ADAPTER_IMAGE="$CHINESE_MCQ_ADAPTER_IMAGE"
-python3 disconnected/scripts/render-provider.py \
-  --output disconnected/work/chinese-mcq-provider.yaml
+python3 .cursor/skills/evalhub-disconnected-deployment/scripts/render-provider.py \
+  --output .cursor/skills/evalhub-disconnected-deployment/work/chinese-mcq-provider.yaml
 ```
 
 The provider definition is generated from `adapters/chinese-mcq/provider.yaml`; its image is changed to the internal registry image. The provider registration itself is intentionally performed through the installed EvalHub control plane, not by applying the provider definition as a Kubernetes Deployment.
@@ -120,7 +120,7 @@ The dataset bundle image carries canonical JSONL files plus `manifest.json` and 
 export NAMESPACE=evalhub-lab
 export DATA_PVC_ACCESS_MODE=ReadWriteMany
 export DATA_PVC_SIZE=2Gi
-./disconnected/scripts/install-data.sh
+./.cursor/skills/evalhub-disconnected-deployment/scripts/install-data.sh
 oc get pvc chinese-benchmark-data -n "$NAMESPACE"
 oc logs job/chinese-benchmark-data-loader -n "$NAMESPACE"
 ```
@@ -134,14 +134,14 @@ Copy `config/runtime.example.json` to the ignored `config/runtime.json`. Set the
 Extract the staged profile input, then install the pipeline with the pushed runner image's digest reference:
 
 ```sh
-mkdir -p disconnected/work
-tar -xzf disconnected/artifacts/prepared-data.tar.gz -C disconnected/work
-cp disconnected/config/runtime.example.json disconnected/config/runtime.json
+mkdir -p .cursor/skills/evalhub-disconnected-deployment/work
+tar -xzf .cursor/skills/evalhub-disconnected-deployment/artifacts/prepared-data.tar.gz -C .cursor/skills/evalhub-disconnected-deployment/work
+cp .cursor/skills/evalhub-disconnected-deployment/config/runtime.example.json .cursor/skills/evalhub-disconnected-deployment/config/runtime.json
 # Edit config/runtime.json for the target provider, EvalHub, MaaS and tenant.
 export PROVIDER_ID='<registered-provider-uuid>'
 export PIPELINE_RUNNER_IMAGE="$MAAS_EVAL_RUNNER_DIGEST_REF"
-export PREPARED_DATA_DIR="$PWD/disconnected/work/prepared-data"
-./disconnected/scripts/install-pipeline.sh
+export PREPARED_DATA_DIR="$PWD/.cursor/skills/evalhub-disconnected-deployment/work/prepared-data"
+./.cursor/skills/evalhub-disconnected-deployment/scripts/install-pipeline.sh
 ```
 
 The helper creates the runtime/profile ConfigMap, renders the Tasks with the immutable internal runner digest, and delegates installation to the existing namespace-scoped Tekton installer. Verify the Pipeline and Tasks are installed before using the dashboard's trigger page.

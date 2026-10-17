@@ -12,7 +12,8 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]
+SKILL_DIR = Path(__file__).resolve().parents[1]
+ROOT = SKILL_DIR.parents[2]
 sys.path.insert(0, str(ROOT / "adapters" / "chinese-mcq"))
 
 from datasets_config import (  # noqa: E402
@@ -118,7 +119,7 @@ def fetch_sources(output_dir: Path, include_qualbench: bool = True) -> dict[str,
     manifest = {
         "schema_version": 1,
         "source_set": "mmlu-three-only" if not include_qualbench else "all-four",
-        "generated_by": "disconnected/scripts/fetch_dataset_sources.py",
+        "generated_by": ".cursor/skills/evalhub-disconnected-deployment/scripts/fetch_dataset_sources.py",
         "sources": sources,
     }
     manifest_path = output_dir / "source-manifest.json"

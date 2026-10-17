@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 NAMESPACE="${NAMESPACE:-evalhub-lab}"
 RENDERED="$(mktemp -d)"
 trap 'rm -rf "$RENDERED"' EXIT
@@ -16,8 +17,8 @@ if [[ "$NAMESPACE" != "evalhub-lab" ]]; then
   exit 2
 fi
 
-python3 "$ROOT/disconnected/scripts/render-template.py" \
-  "$ROOT/disconnected/manifests/evalhub-namespace.yaml" "$RENDERED/evalhub-namespace.yaml"
+python3 "$SKILL_DIR/scripts/render-template.py" \
+  "$SKILL_DIR/manifests/evalhub-namespace.yaml" "$RENDERED/evalhub-namespace.yaml"
 oc apply -f "$RENDERED/evalhub-namespace.yaml"
-oc apply -f "$ROOT/disconnected/manifests/dashboard-namespace.yaml"
+oc apply -f "$SKILL_DIR/manifests/dashboard-namespace.yaml"
 echo "Created namespaces $NAMESPACE and evalhub-dashboard. Provision their required Secrets through your secret-management process."
