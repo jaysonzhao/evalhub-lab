@@ -5,9 +5,15 @@
   "provider_id": "REPLACE_WITH_REGISTERED_PROVIDER_UUID",
   "dashboard_api_key_secret_name": "dashboard-maas-api-key",
   "approved_endpoint_prefixes": [
+    "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com",
     "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm"
   ],
   "endpoint_secret_bindings": [
+    {
+      "endpoint_prefix": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com",
+      "secret_names": ["dashboard-maas-api-key"],
+      "secret_name_patterns": []
+    },
     {
       "endpoint_prefix": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm",
       "secret_names": ["dashboard-maas-api-key"],

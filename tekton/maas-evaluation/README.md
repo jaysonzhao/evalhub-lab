@@ -30,7 +30,7 @@ For an MMLU-only environment, prepare with `--mmlu-only` and generate a partial 
 
 Publish the files under `/tmp/chinese-mcq-prepared` to a versioned S3 prefix and configure the separate S3 credential Secret, or use an existing tenant-local PVC. Copy `config/runtime.example.json` to the ignored `deployment/runtime.json`. Set the actual provider UUID, selected `test_data_refs`, cluster-local EvalHub service URL, service CA bundle path, approved MaaS endpoint prefix, and endpoint-to-model-Secret binding. Leave `quality_thresholds` empty unless the team has approved explicit per-benchmark thresholds on the adapter's 0–100 percentage scale.
 
-The default endpoint and secret-name pattern already reflect the lab's `gpt-oss-20b` MaaS route. When changing endpoint access, update both the allowlist and its Secret binding; preflight rejects unmatched pairs before it submits any job.
+The dashboard uses body-based routing at the MaaS gateway origin. The exact model ID returned by `/v1/models` is sent in the inference request body, including IDs with namespace/model path segments. Keep the gateway origin in the endpoint allowlist and its Secret binding; exact `/llm/{model-id}` paths remain supported for legacy PipelineRuns.
 
 Create the namespace-local runtime ConfigMap after the profile and runtime file are ready:
 
@@ -66,7 +66,7 @@ oc create --dry-run=server -f ./pipelinerun.example.yaml -n evalhub-lab
 
 The runner Role is namespace-scoped. It grants only the EvalHub virtual `evaluations` create/get/list rights, provider discovery reads, and MLflow `experiments` create/get rights required by EvalHub's job-create proxy policy. Its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It can patch only `dashboard-maas-api-key` to clear its data in the finally diagnostics task; it cannot read Secrets, create or edit the runtime ConfigMap, or administer providers. The authenticated dashboard launcher can patch only that same Secret to stage the user's entered MaaS key, and can read only the run ledger to ensure that key is not replaced while a remote EvalHub job may still use it. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
 
-The dashboard model picker queries the MaaS OpenAI-compatible `GET /v1/models` catalog over HTTPS. A submitted model is checked against that catalog again, and the endpoint is derived from its returned model ID. The API key is stored in the fixed Secret only for the run; the finally task clears it once all EvalHub jobs are terminal. A timeout or cancelled PipelineRun does not prove the remote jobs stopped, so the key is retained and a new dashboard run is blocked until reconciliation confirms terminal job state.
+The dashboard model picker queries the MaaS OpenAI-compatible `GET /v1/models` catalog over HTTPS. A submitted model is checked against that catalog again. Inference uses the configured MaaS gateway origin at `/v1/chat/completions`, with the exact model ID in the request body. The API key is stored in the fixed Secret only for the run; the finally task clears it once all EvalHub jobs are terminal. A timeout or cancelled PipelineRun does not prove the remote jobs stopped, so the key is retained and a new dashboard run is blocked until reconciliation confirms terminal job state.
 
 ## Trigger all four smoke evaluations
 
@@ -74,7 +74,7 @@ The helper asks for the MaaS key privately, creates a unique immutable tenant Se
 
 ```sh
 python3 tekton/maas-evaluation/scripts/launch_eval.py \
-  --endpoint 'https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b' \
+  --endpoint 'https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com' \
   --model gpt-oss-20b \
   --profile smoke \
   --datasets all

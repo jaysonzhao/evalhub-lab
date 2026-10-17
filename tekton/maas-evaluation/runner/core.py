@@ -33,7 +33,7 @@ QUALBENCH_EXCLUDED_IDS = [
 ]
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
-MAAS_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+MAAS_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)*$")
 
 
 class EvaluationError(RuntimeError):
@@ -146,10 +146,13 @@ def validate_endpoint_secret_binding(endpoint: str, secret_name: str, bindings: 
 
 
 def validate_model_endpoint(endpoint: str, model_name: str) -> None:
-    if not MAAS_MODEL_ID_RE.fullmatch(model_name):
+    if len(model_name) > 256 or not MAAS_MODEL_ID_RE.fullmatch(model_name):
         raise EvaluationError("model-name must be a valid MaaS model identifier.")
     parsed = validate_https_url(endpoint, label="MaaS endpoint")
-    if urllib.parse.unquote(parsed.path.rstrip("/")) != "/llm/" + model_name:
+    endpoint_path = urllib.parse.unquote(parsed.path.rstrip("/"))
+    # New MaaS integrations use body-based routing at the gateway origin; keep
+    # exact per-model paths valid for legacy PipelineRuns already in use.
+    if endpoint_path not in {"", "/llm/" + model_name}:
         raise EvaluationError("The MaaS model identifier must match the selected inference endpoint.")
 
 

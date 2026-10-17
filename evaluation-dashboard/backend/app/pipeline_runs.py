@@ -25,7 +25,7 @@ PROFILE_TIMEOUTS = {
     "coverage": {"pipeline": "7h", "tasks": "6h30m", "finally": "30m"},
     "full": {"pipeline": "43h", "tasks": "41h", "finally": "2h"},
 }
-MODEL_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\Z")
+MODEL_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]*(?:/[A-Za-z0-9][A-Za-z0-9._:-]*)*\Z")
 _PIPELINE_RUN_LOCK = threading.Lock()
 
 
@@ -34,7 +34,7 @@ class PipelineRunRequest(BaseModel):
 
     profile: Literal["smoke", "coverage", "full"] = "smoke"
     datasets: list[Literal["hkmmlu", "tmmluplus", "cmmlu", "qualbench"]] = Field(min_length=1, max_length=4)
-    model_name: str = Field(min_length=1, max_length=128)
+    model_name: str = Field(min_length=1, max_length=256)
     api_key: SecretStr = Field(min_length=1, max_length=4096, repr=False)
     confirm_full_run: bool = False
 
@@ -110,7 +110,7 @@ def _fetch_models(api_key: str, settings: dict[str, str]) -> tuple[list[dict[str
             unsupported_count += 1
             continue
         model_id = item.get("id")
-        if not isinstance(model_id, str) or not MODEL_ID_RE.fullmatch(model_id):
+        if not isinstance(model_id, str) or len(model_id) > 256 or not MODEL_ID_RE.fullmatch(model_id):
             unsupported_count += 1
             continue
         if item.get("ready") is False:
@@ -319,7 +319,9 @@ def create_pipeline_run(payload: PipelineRunRequest, request: Request) -> dict[s
     secret_name = quote(settings["secret_name"], safe="")
     secret_path = f"/api/v1/namespaces/{namespace}/secrets/{secret_name}"
     secret_data = base64.b64encode(api_key.encode("utf-8")).decode("ascii")
-    endpoint = settings["maas_root"] + "/llm/" + quote(payload.model_name, safe="-._~")
+    # MaaS 3.5 recommends body-based routing, which also supports returned IDs
+    # containing namespace/model path segments without encoding them into a URL.
+    endpoint = settings["maas_root"]
 
     body = {
         "apiVersion": "tekton.dev/v1",

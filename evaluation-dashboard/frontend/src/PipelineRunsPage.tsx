@@ -177,7 +177,7 @@ export default function PipelineRunsPage() {
                 {models.length === 0 && <option value="">Load models with your API key</option>}
                 {models.map((model) => <option value={model.id} key={model.id}>{model.id}{model.ready ? " · ready" : ""}</option>)}
               </select>
-              <small>The model endpoint is derived from the selected MaaS model ID.</small>
+              <small>Requests use the MaaS gateway endpoint; the exact model ID returned by MaaS is sent in the request body.</small>
             </label>
             <fieldset className="dataset-picker">
               <legend>Benchmarks</legend>
@@ -214,7 +214,7 @@ export default function PipelineRunsPage() {
         </section>
 
         <aside className="pipeline-side-panel">
-          <section className="panel pipeline-summary-panel"><span className="eyebrow">PIPELINE CONFIGURATION</span><h2>{selectedModel || "MaaS model"}</h2><dl><div><dt>Pipeline</dt><dd>maas-evaluation</dd></div><div><dt>Namespace</dt><dd>evalhub-lab</dd></div><div><dt>Endpoint</dt><dd>Derived from the MaaS model ID</dd></div><div><dt>Credential</dt><dd>Fixed Secret; cleared after remote jobs finish</dd></div></dl></section>
+          <section className="panel pipeline-summary-panel"><span className="eyebrow">PIPELINE CONFIGURATION</span><h2>{selectedModel || "MaaS model"}</h2><dl><div><dt>Pipeline</dt><dd>maas-evaluation</dd></div><div><dt>Namespace</dt><dd>evalhub-lab</dd></div><div><dt>Endpoint</dt><dd>Shared MaaS gateway with body-based model routing</dd></div><div><dt>Credential</dt><dd>Fixed Secret; cleared after remote jobs finish</dd></div></dl></section>
           <section className="panel pipeline-summary-panel"><span className="eyebrow">AFTER YOU START</span><ol className="pipeline-after-list"><li>Preflight validates the selection and endpoint binding.</li><li>Tekton submits one EvalHub job per benchmark.</li><li>Results and MLflow links appear in the dashboard as jobs finish.</li><li>PipelineRun status shows the Gate outcome.</li></ol></section>
         </aside>
       </div>
