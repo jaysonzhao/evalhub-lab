@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 type Profile = "smoke" | "coverage" | "full";
 type Dataset = "hkmmlu" | "tmmluplus" | "cmmlu" | "qualbench";
 type MaaSModel = { id: string; ready: boolean };
+type MaaSCatalogDiagnostics = { catalog_count: number; not_ready_count: number; unsupported_count: number };
 type PipelineRun = {
   name: string;
   created_at: string | null;
@@ -69,9 +70,20 @@ export default function PipelineRunsPage() {
       });
       const body = await responseBody(response);
       const items = Array.isArray(body.items) ? body.items as MaaSModel[] : [];
+      const catalog = body.catalog && typeof body.catalog === "object"
+        ? body.catalog as MaaSCatalogDiagnostics
+        : { catalog_count: 0, not_ready_count: 0, unsupported_count: 0 };
       setModels(items);
       if (items.length) setSelectedModel(items[0].id);
-      else setError("MaaS did not return any available models for this key.");
+      else if (catalog.catalog_count === 0) {
+        setError("MaaS accepted the key but returned no models available to it. In Gen AI Studio → API keys → Subscriptions, check that the key's subscription includes a published model and that your group has access to it. MaaS captures group membership when a key is created, so create a new key after correcting group access.");
+      } else if (catalog.not_ready_count === catalog.catalog_count) {
+        setError("MaaS returned models for this key, but none are Ready. Check the model status in Gen AI Studio → AI asset endpoints.");
+      } else if (catalog.unsupported_count > 0) {
+        setError("MaaS returned model entries, but none use a model ID format supported by this launcher. Contact the dashboard maintainer with the model ID format; do not send the API key.");
+      } else {
+        setError("MaaS returned no selectable models for this key. Check the key's subscription and model readiness.");
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load the MaaS model catalog.");
     } finally {

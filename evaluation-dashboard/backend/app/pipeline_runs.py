@@ -79,7 +79,7 @@ def _settings() -> dict[str, str]:
     return values
 
 
-def _fetch_models(api_key: str, settings: dict[str, str]) -> list[dict[str, Any]]:
+def _fetch_models(api_key: str, settings: dict[str, str]) -> tuple[list[dict[str, Any]], dict[str, int]]:
     try:
         response = requests.get(
             settings["maas_root"] + "/v1/models",
@@ -103,15 +103,26 @@ def _fetch_models(api_key: str, settings: dict[str, str]) -> list[dict[str, Any]
     if not isinstance(entries, list):
         raise HTTPException(status_code=502, detail="MaaS returned an invalid model catalog.")
     models = []
+    not_ready_count = 0
+    unsupported_count = 0
     for item in entries:
         if not isinstance(item, dict):
+            unsupported_count += 1
             continue
         model_id = item.get("id")
-        if not isinstance(model_id, str) or not MODEL_ID_RE.fullmatch(model_id) or item.get("ready") is False:
+        if not isinstance(model_id, str) or not MODEL_ID_RE.fullmatch(model_id):
+            unsupported_count += 1
+            continue
+        if item.get("ready") is False:
+            not_ready_count += 1
             continue
         models.append({"id": model_id, "ready": item.get("ready") is True})
     models.sort(key=lambda item: item["id"].casefold())
-    return models
+    return models, {
+        "catalog_count": len(entries),
+        "not_ready_count": not_ready_count,
+        "unsupported_count": unsupported_count,
+    }
 
 
 def _require_dashboard_user(request: Request) -> str:
@@ -238,7 +249,8 @@ def list_pipeline_runs(
 def list_maas_models(payload: MaaSModelsRequest, request: Request) -> dict[str, Any]:
     _require_dashboard_user(request)
     _require_same_origin(request)
-    return {"items": _fetch_models(payload.api_key.get_secret_value(), _settings())}
+    models, catalog = _fetch_models(payload.api_key.get_secret_value(), _settings())
+    return {"items": models, "catalog": catalog}
 
 
 def _clear_api_key(settings: dict[str, str]) -> None:
@@ -299,7 +311,7 @@ def create_pipeline_run(payload: PipelineRunRequest, request: Request) -> dict[s
 
     settings = _settings()
     api_key = payload.api_key.get_secret_value()
-    models = _fetch_models(api_key, settings)
+    models, _catalog = _fetch_models(api_key, settings)
     if not any(item["id"] == payload.model_name for item in models):
         raise HTTPException(status_code=422, detail="The selected MaaS model is not available to this API key.")
 
