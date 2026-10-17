@@ -128,12 +128,33 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
             by_job_id.setdefault(str(job_id), []).append(run)
     linked_jobs: set[str] = set()
     evalhub_only: list[dict[str, Any]] = []
+    duplicate_launch_run_ids: set[str] = set()
 
     for job in jobs:
         benchmarks = job.get("benchmarks", [])
         job_id = job.get("job_id")
         for benchmark in benchmarks:
             run_id = benchmark.get("mlflow_run_id")
+            canonical_run = by_id.get(run_id) if run_id else None
+            # EvalHub may create an empty MLflow run when a job is launched, then
+            # write the measured result to a second run and return that run's ID.
+            # Keep the result run as the dashboard row and hide only the empty,
+            # still-open launch record when this explicit link proves the pair.
+            if job_id and canonical_run and canonical_run.get("metrics_raw"):
+                for candidate in by_job_id.get(str(job_id), []):
+                    candidate_id = candidate.get("run_id")
+                    same_benchmark = candidate.get("benchmark") == benchmark.get("benchmark")
+                    if not same_benchmark and len(benchmarks) == 1:
+                        same_benchmark = not candidate.get("benchmark")
+                    if (
+                        candidate_id
+                        and candidate_id != run_id
+                        and same_benchmark
+                        and not candidate.get("metrics_raw")
+                        and _state(candidate.get("state")) in {"running", "unknown"}
+                    ):
+                        duplicate_launch_run_ids.add(str(candidate_id))
+
             matches: list[tuple[dict[str, Any], str]] = []
             run = by_id.get(run_id) if run_id else None
             if run is not None:
@@ -241,7 +262,7 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
             run["provenance"].setdefault("denominator_definition", "all attempted questions, including invalid/failed attempts")
         run.setdefault("source_provenance", [{"source": "mlflow", "run_id": run.get("run_id")}])
         run.setdefault("source_conflicts", [])
-    return runs + evalhub_only
+    return [run for run in runs if str(run.get("run_id")) not in duplicate_launch_run_ids] + evalhub_only
 
 
 def _filter_runs(runs: list[dict[str, Any]], *, benchmark: str | None = None, model: str | None = None, state: str | None = None, protocol: str | None = None, experiment_id: str | None = None, started_after: int | None = None, started_before: int | None = None, query: str | None = None) -> list[dict[str, Any]]:
