@@ -12,6 +12,7 @@ import sys
 import urllib.request
 import zipfile
 from collections import Counter
+from importlib import metadata as importlib_metadata
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -33,6 +34,74 @@ QUALBENCH_URL = (
 )
 
 
+class SourceCache:
+    """Read pinned dataset source files from a verified, portable cache."""
+
+    def __init__(self, root: Path):
+        self.root = root.resolve()
+        manifest_path = self.root / "source-manifest.json"
+        try:
+            manifest_bytes = manifest_path.read_bytes()
+            manifest = json.loads(manifest_bytes)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Cannot read source cache manifest {manifest_path}: {exc}") from exc
+        detached_path = self.root / "source-manifest.sha256"
+        try:
+            detached_hash = detached_path.read_text(encoding="ascii").split()[0]
+        except (OSError, IndexError) as exc:
+            raise ValueError(f"Cannot read source cache checksum {detached_path}: {exc}") from exc
+        if sha256_bytes(manifest_bytes) != detached_hash:
+            raise ValueError("Source cache manifest checksum does not match source-manifest.sha256")
+        if manifest.get("schema_version") != 1 or not isinstance(manifest.get("sources"), dict):
+            raise ValueError("Source cache manifest must use schema_version 1 and contain sources")
+        self.manifest_sha256 = sha256_bytes(manifest_bytes)
+        self.sources = manifest["sources"]
+        self._verified: set[Path] = set()
+
+    @staticmethod
+    def _repo_dir(repo: str) -> str:
+        return repo.replace("/", "__")
+
+    def files(self, repo: str, revision: str) -> list[str]:
+        source = self._source(repo, revision)
+        entries = source.get("files")
+        if not isinstance(entries, list):
+            raise ValueError(f"Source cache has no file list for {repo}@{revision}")
+        return sorted(str(item["path"]) for item in entries)
+
+    def path(self, repo: str, filename: str, revision: str) -> Path:
+        source = self._source(repo, revision)
+        entries = source.get("files")
+        if not isinstance(entries, list):
+            raise ValueError(f"Source cache has no file list for {repo}@{revision}")
+        record = next((item for item in entries if item.get("path") == filename), None)
+        if record is None:
+            raise ValueError(f"Source cache is missing {repo}@{revision}:{filename}")
+        relative = PurePosixPath(filename)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"Unsafe source cache path: {filename!r}")
+        path = (self.root / self._repo_dir(repo) / revision / Path(*relative.parts)).resolve()
+        if not path.is_relative_to(self.root) or not path.is_file():
+            raise ValueError(f"Cached source file is missing or outside the cache: {filename}")
+        if path not in self._verified:
+            expected_hash = record.get("sha256")
+            expected_bytes = record.get("bytes")
+            if (
+                not isinstance(expected_hash, str)
+                or _sha256_file(path) != expected_hash
+                or path.stat().st_size != expected_bytes
+            ):
+                raise ValueError(f"Cached source checksum or size mismatch: {repo}:{filename}")
+            self._verified.add(path)
+        return path
+
+    def _source(self, repo: str, revision: str) -> dict[str, Any]:
+        source = self.sources.get(repo)
+        if not isinstance(source, dict) or source.get("revision") != revision:
+            raise ValueError(f"Source cache does not contain the pinned revision {repo}@{revision}")
+        return source
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -41,7 +110,11 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _download_dataset_file(repo: str, filename: str, revision: str) -> Path:
+def _download_dataset_file(
+    repo: str, filename: str, revision: str, source_cache: SourceCache | None = None,
+) -> Path:
+    if source_cache is not None:
+        return source_cache.path(repo, filename, revision)
     from huggingface_hub import hf_hub_download
 
     return Path(hf_hub_download(
@@ -53,7 +126,9 @@ def _download_dataset_file(repo: str, filename: str, revision: str) -> Path:
     ))
 
 
-def _dataset_files(repo: str, revision: str) -> list[str]:
+def _dataset_files(repo: str, revision: str, source_cache: SourceCache | None = None) -> list[str]:
+    if source_cache is not None:
+        return source_cache.files(repo, revision)
     from huggingface_hub import HfApi
 
     return HfApi().list_repo_files(repo_id=repo, repo_type="dataset", revision=revision)
@@ -64,17 +139,17 @@ def _read_csv(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(stream))
 
 
-def _load_hkmmlu() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _load_hkmmlu(source_cache: SourceCache | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     source = MMLU_SOURCES["hkmmlu"]
     files = sorted(
-        name for name in _dataset_files(source["repo"], source["revision"])
+        name for name in _dataset_files(source["repo"], source["revision"], source_cache)
         if name.startswith("data/multiple_choice/test/") and name.lower().endswith(".csv")
     )
     if len(files) != source["expected_subjects"]:
         raise ValueError(f"HKMMLU expected 66 test subjects, found {len(files)}")
     rows, source_files = [], []
     for filename in files:
-        path = _download_dataset_file(source["repo"], filename, source["revision"])
+        path = _download_dataset_file(source["repo"], filename, source["revision"], source_cache)
         subject = PurePosixPath(filename).stem
         source_files.append({"path": filename, "sha256": _sha256_file(path), "bytes": path.stat().st_size})
         for index, raw in enumerate(_read_csv(path)):
@@ -84,10 +159,10 @@ def _load_hkmmlu() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     return rows, source_files
 
 
-def _load_tmmluplus() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _load_tmmluplus(source_cache: SourceCache | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     source = MMLU_SOURCES["tmmluplus"]
     files = sorted(
-        name for name in _dataset_files(source["repo"], source["revision"])
+        name for name in _dataset_files(source["repo"], source["revision"], source_cache)
         if PurePosixPath(name).name.startswith("test-") and name.endswith(".parquet")
     )
     subjects = sorted({PurePosixPath(name).parent.name for name in files})
@@ -97,7 +172,7 @@ def _load_tmmluplus() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
 
     rows, source_files, per_subject_row = [], [], Counter()
     for filename in files:
-        path = _download_dataset_file(source["repo"], filename, source["revision"])
+        path = _download_dataset_file(source["repo"], filename, source["revision"], source_cache)
         subject = PurePosixPath(filename).parent.name
         source_files.append({"path": filename, "sha256": _sha256_file(path), "bytes": path.stat().st_size})
         for raw in parquet.read_table(path).to_pylist():
@@ -109,9 +184,9 @@ def _load_tmmluplus() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     return rows, source_files
 
 
-def _load_cmmlu() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _load_cmmlu(source_cache: SourceCache | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     source = MMLU_SOURCES["cmmlu"]
-    archive_path = _download_dataset_file(source["repo"], "cmmlu_v1_0_1.zip", source["revision"])
+    archive_path = _download_dataset_file(source["repo"], "cmmlu_v1_0_1.zip", source["revision"], source_cache)
     archive_hash = _sha256_file(archive_path)
     rows, source_files = [], []
     with zipfile.ZipFile(archive_path) as archive:
@@ -134,10 +209,16 @@ def _load_cmmlu() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     return rows, [{"path": "cmmlu_v1_0_1.zip", "sha256": archive_hash, "members": source_files}]
 
 
-def _load_qualbench(correction_file: Path) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
-    request = urllib.request.Request(QUALBENCH_URL, headers={"User-Agent": "rhoai-evalhub-lab/1.0"})
-    with urllib.request.urlopen(request, timeout=90) as response:
-        source_bytes = response.read()
+def _load_qualbench(
+    correction_file: Path, source_cache: SourceCache | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    if source_cache is not None:
+        source_path = source_cache.path(QUALBENCH_REPO, "data/QualBench.json", QUALBENCH_REVISION)
+        source_bytes = source_path.read_bytes()
+    else:
+        request = urllib.request.Request(QUALBENCH_URL, headers={"User-Agent": "rhoai-evalhub-lab/1.0"})
+        with urllib.request.urlopen(request, timeout=90) as response:
+            source_bytes = response.read()
     if sha256_bytes(source_bytes) != QUALBENCH_FILE_SHA256:
         raise ValueError("QualBench downloaded bytes do not match the pinned source hash")
     correction_bytes = correction_file.read_bytes()
@@ -161,14 +242,27 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> str:
     return _sha256_file(path)
 
 
-def prepare(output_dir: Path, correction_file: Path, include_qualbench: bool = True) -> dict[str, Any]:
+def _package_version(name: str) -> str:
+    try:
+        return importlib_metadata.version(name)
+    except importlib_metadata.PackageNotFoundError:
+        return "not-installed"
+
+
+def prepare(
+    output_dir: Path,
+    correction_file: Path,
+    include_qualbench: bool = True,
+    source_dir: Path | None = None,
+) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    source_cache = SourceCache(source_dir) if source_dir is not None else None
     benchmark_rows: dict[str, list[dict[str, Any]]] = {}
     benchmark_sources: dict[str, Any] = {}
     for name, loader in (
-        ("hkmmlu", _load_hkmmlu),
-        ("tmmluplus", _load_tmmluplus),
-        ("cmmlu", _load_cmmlu),
+        ("hkmmlu", lambda: _load_hkmmlu(source_cache)),
+        ("tmmluplus", lambda: _load_tmmluplus(source_cache)),
+        ("cmmlu", lambda: _load_cmmlu(source_cache)),
     ):
         rows, sources = loader()
         if not rows:
@@ -179,7 +273,7 @@ def prepare(output_dir: Path, correction_file: Path, include_qualbench: bool = T
     qualbench_audit = None
     qualbench_source = None
     if include_qualbench:
-        qualbench_rows, qualbench_audit, qualbench_source = _load_qualbench(correction_file)
+        qualbench_rows, qualbench_audit, qualbench_source = _load_qualbench(correction_file, source_cache)
         benchmark_rows["qualbench"] = qualbench_rows
 
     manifest: dict[str, Any] = {
@@ -188,11 +282,14 @@ def prepare(output_dir: Path, correction_file: Path, include_qualbench: bool = T
         "generated_by": "adapters/chinese-mcq/prepare_datasets.py",
         "preparation_environment": {
             "python": sys.version.split()[0],
-            "huggingface_hub": __import__("huggingface_hub").__version__,
-            "pyarrow": __import__("pyarrow").__version__,
+            "huggingface_hub": _package_version("huggingface-hub"),
+            "pyarrow": _package_version("pyarrow"),
+            "source_mode": "local-cache" if source_cache is not None else "online",
         },
         "benchmarks": {},
     }
+    if source_cache is not None:
+        manifest["source_cache_manifest_sha256"] = source_cache.manifest_sha256
     if include_qualbench:
         manifest.update({
             "qualbench_protocol": "qualbench-zero-shot-strict-v1",
@@ -243,6 +340,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
+        "--source-dir", type=Path,
+        help="Use a verified local source cache; no Hugging Face or GitHub requests are made.",
+    )
+    parser.add_argument(
         "--corrections", type=Path,
         default=Path(__file__).resolve().parents[2] / "config" / "qualbench-corrections-diagnostic-v2.json",
     )
@@ -251,7 +352,12 @@ def main() -> None:
         help="Prepare only the three MMLU datasets while QualBench source anomalies are under review.",
     )
     args = parser.parse_args()
-    result = prepare(args.output_dir, args.corrections, include_qualbench=not args.mmlu_only)
+    result = prepare(
+        args.output_dir,
+        args.corrections,
+        include_qualbench=not args.mmlu_only,
+        source_dir=args.source_dir,
+    )
     print(json.dumps({
         "output_dir": str(args.output_dir),
         "benchmarks": {name: item["row_count"] for name, item in result["benchmarks"].items()},

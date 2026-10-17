@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chinese-benchmark-data
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: evalhub-lab
+    app.kubernetes.io/component: benchmark-data
+spec:
+  accessModes:
+    - ${DATA_PVC_ACCESS_MODE}
+  resources:
+    requests:
+      storage: ${DATA_PVC_SIZE}

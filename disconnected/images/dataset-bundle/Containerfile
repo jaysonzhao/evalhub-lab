@@ -1,0 +1,12 @@
+ARG PYTHON_BASE_IMAGE=registry.access.redhat.com/ubi9/python-311:latest
+FROM ${PYTHON_BASE_IMAGE}
+
+USER 0
+WORKDIR /opt/dataset-bundle
+COPY data/ /bundle/
+COPY loader.py /opt/dataset-bundle/loader.py
+RUN chmod -R a+rX /bundle /opt/dataset-bundle
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+USER 1001
+ENTRYPOINT ["python3", "/opt/dataset-bundle/loader.py"]

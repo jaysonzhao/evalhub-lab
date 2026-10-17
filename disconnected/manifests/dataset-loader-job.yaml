@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: chinese-benchmark-data-loader
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: evalhub-lab
+    app.kubernetes.io/component: benchmark-data
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 604800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: evalhub-lab
+        app.kubernetes.io/component: benchmark-data
+    spec:
+      restartPolicy: Never
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: load-benchmark-data
+          image: ${DATASET_IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_DATA_DIR
+              value: /target
+          volumeMounts:
+            - name: benchmark-data
+              mountPath: /target
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+      volumes:
+        - name: benchmark-data
+          persistentVolumeClaim:
+            claimName: chinese-benchmark-data

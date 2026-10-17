@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 .cursor/
 .lola/
+disconnected/artifacts/
+disconnected/work/
+disconnected/config/runtime.json
+disconnected/config/dataset-profile.json

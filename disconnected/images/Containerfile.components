@@ -1,0 +1,45 @@
+ARG PYTHON_311_BASE_IMAGE=registry.access.redhat.com/ubi9/python-311:latest
+ARG PYTHON_312_BASE_IMAGE=registry.access.redhat.com/ubi9/python-312:latest
+ARG NODE_22_BASE_IMAGE=registry.access.redhat.com/ubi9/nodejs-22:latest
+
+FROM ${PYTHON_311_BASE_IMAGE} AS chinese-mcq-adapter
+USER 0
+WORKDIR /app
+COPY adapters/chinese-mcq/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY adapters/chinese-mcq/main.py adapters/chinese-mcq/datasets_config.py adapters/chinese-mcq/parser.py adapters/chinese-mcq/prompts.py ./
+RUN mkdir -p /tmp/chinese-mcq-results && chown -R 1001:0 /app /tmp/chinese-mcq-results && chmod -R g+rwX /app /tmp/chinese-mcq-results
+ENV PYTHONUNBUFFERED=1 EVALHUB_MODE=k8s EVALHUB_JOB_SPEC_PATH=/meta/job.json HOME=/tmp DATA_DIR=/test_data
+USER 1001
+ENTRYPOINT ["python", "main.py"]
+
+FROM ${PYTHON_312_BASE_IMAGE} AS maas-eval-runner
+USER 0
+WORKDIR /opt/maas-evaluation
+COPY tekton/maas-evaluation/runner/ /opt/maas-evaluation/runner/
+COPY tekton/maas-evaluation/requirements.lock /opt/maas-evaluation/requirements.lock
+RUN chmod -R a+rX /opt/maas-evaluation
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+USER 1001
+ENTRYPOINT ["python3", "/opt/maas-evaluation/runner/cli.py"]
+
+FROM ${NODE_22_BASE_IMAGE} AS dashboard-frontend
+USER 0
+WORKDIR /workspace/frontend
+COPY evaluation-dashboard/frontend/package.json evaluation-dashboard/frontend/package-lock.json ./
+RUN npm ci
+COPY evaluation-dashboard/frontend/ ./
+RUN npm run build
+
+FROM ${PYTHON_312_BASE_IMAGE} AS model-evaluation-dashboard
+USER 0
+WORKDIR /opt/evaluation-dashboard
+COPY evaluation-dashboard/backend/requirements.lock ./requirements.lock
+RUN python3 -m pip install --no-cache-dir --require-hashes -r requirements.lock
+COPY evaluation-dashboard/backend/app/ ./app/
+COPY --from=dashboard-frontend /workspace/backend/app/static/ ./app/static/
+RUN chmod -R g=u /opt/evaluation-dashboard
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8080
+EXPOSE 8080
+USER 1001
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8080", "--no-access-log"]

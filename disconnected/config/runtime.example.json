@@ -1,0 +1,32 @@
+{
+  "evalhub_url": "https://evalhub.evalhub-lab.svc.cluster.local:8443",
+  "ca_bundle_path": "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt",
+  "tenant": "evalhub-lab",
+  "provider_id": "REPLACE_WITH_REGISTERED_PROVIDER_UUID",
+  "dashboard_api_key_secret_name": "dashboard-maas-api-key",
+  "approved_endpoint_prefixes": [
+    "https://REPLACE_WITH_MAAS_HOST",
+    "https://REPLACE_WITH_MAAS_HOST/llm"
+  ],
+  "endpoint_secret_bindings": [
+    {
+      "endpoint_prefix": "https://REPLACE_WITH_MAAS_HOST",
+      "secret_names": ["dashboard-maas-api-key"],
+      "secret_name_patterns": []
+    },
+    {
+      "endpoint_prefix": "https://REPLACE_WITH_MAAS_HOST/llm",
+      "secret_names": ["dashboard-maas-api-key"],
+      "secret_name_patterns": []
+    }
+  ],
+  "test_data_refs": {
+    "hkmmlu": {"pvc": {"claim_name": "chinese-benchmark-data"}},
+    "tmmluplus": {"pvc": {"claim_name": "chinese-benchmark-data"}},
+    "cmmlu": {"pvc": {"claim_name": "chinese-benchmark-data"}},
+    "qualbench": {"pvc": {"claim_name": "chinese-benchmark-data"}}
+  },
+  "wait_deadlines_seconds": {"smoke": 5400, "coverage": 21600, "full": 144000},
+  "poll_seconds": 15,
+  "quality_thresholds": {}
+}
