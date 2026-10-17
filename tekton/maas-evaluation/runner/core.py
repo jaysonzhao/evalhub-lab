@@ -670,7 +670,7 @@ class Workflow:
                 },
                 "benchmarks": [{
                     "provider_id": selection["provider_id"],
-                    "benchmark_id": dataset,
+                    "id": dataset,
                     "parameters": profile_parameters(selection["profile"], dataset, info),
                     "test_data_ref": self.runtime["test_data_refs"][dataset],
                 }],

@@ -64,7 +64,7 @@ PIPELINE_NAMESPACE=evalhub-lab ./scripts/install.sh
 oc create --dry-run=server -f ./pipelinerun.example.yaml -n evalhub-lab
 ```
 
-The runner Role is namespace-scoped. Its EvalHub permissions target the served `lmevaljobs.trustyai.opendatahub.io` resource, and its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It cannot create or edit the runtime ConfigMap, read Secrets, or administer providers. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
+The runner Role is namespace-scoped. It grants only the EvalHub virtual `evaluations` create/get/list rights, provider discovery reads, and MLflow `experiments` create/get rights required by EvalHub's job-create proxy policy. Its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It cannot create or edit the runtime ConfigMap, read Secrets, or administer providers. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
 
 ## Trigger all four smoke evaluations
 

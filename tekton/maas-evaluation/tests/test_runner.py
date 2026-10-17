@@ -100,7 +100,7 @@ class FakeAPI:
         self.requests.append(payload)
         if self.behavior == "unknown_post":
             raise EvaluationError("EvalHub POST request failed (URLError).")
-        dataset = payload["benchmarks"][0]["benchmark_id"]
+        dataset = payload["benchmarks"][0]["id"]
         return {"resource": {"id": f"job-{dataset}"}, "status": {"state": "pending"}}
 
     def find_by_tag(self, tag: str) -> list[dict[str, Any]]:
@@ -327,6 +327,8 @@ class WorkflowTests(unittest.TestCase):
             profile="smoke", datasets=["hkmmlu"],
         )
         workflow.submit(datasets=["hkmmlu"])
+        self.assertEqual(api.requests[0]["benchmarks"][0]["id"], "hkmmlu")
+        self.assertNotIn("benchmark_id", api.requests[0]["benchmarks"][0])
         self.assertEqual(
             api.requests[0]["benchmarks"][0]["test_data_ref"],
             {"pvc": {"claim_name": "chinese-benchmark-data"}},
