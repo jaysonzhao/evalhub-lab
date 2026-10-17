@@ -189,6 +189,8 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
                         # EvalHub owns the evaluation lifecycle; callbacks can
                         # leave the corresponding MLflow bookkeeping run open.
                         run["state"] = job_state
+                    if run.get("end_time_ms") is None and job_state in {"completed", "failed", "partially_failed", "cancelled"}:
+                        run["end_time_ms"] = job.get("updated_at_ms")
                     if not run.get("metrics_raw") and benchmark.get("metrics_raw"):
                         # Prefer measured benchmark metrics from the explicitly
                         # linked EvalHub result when the MLflow row is empty.
@@ -208,6 +210,7 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
                 protocol = job.get("protocol")
                 raw_metrics = benchmark.get("metrics_raw", {})
                 normalized = _metric_values(raw_metrics, protocol)
+                benchmark_state = _state(benchmark.get("state") or job.get("state"))
                 evalhub_only.append(
                     {
                         "schema_version": SCHEMA_VERSION,
@@ -219,9 +222,9 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
                         "run_id": None,
                         "job_id": job.get("job_id"),
                         "run_name": job.get("name"),
-                        "state": _state(benchmark.get("state") or job.get("state")),
+                        "state": benchmark_state,
                         "start_time_ms": None,
-                        "end_time_ms": None,
+                        "end_time_ms": job.get("updated_at_ms") if benchmark_state in {"completed", "failed", "partially_failed", "cancelled"} else None,
                         "model": {"name": (job.get("model") or {}).get("name") or "Unknown model", "revision": (job.get("model") or {}).get("revision")},
                         "benchmark": benchmark.get("benchmark"),
                         "provider_id": benchmark.get("provider_id"),

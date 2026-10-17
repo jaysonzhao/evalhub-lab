@@ -8,6 +8,7 @@ import os
 import re
 import tempfile
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -23,6 +24,18 @@ MAX_QUESTION_ROWS = 100_000
 MAX_JOB_PAGES = 50
 MAX_ARTIFACT_PATHS = 500
 ALLOWED_QUESTION_ARTIFACTS = {"detailed_results.jsonl", "detailed_results.json", "detailed_results.csv"}
+
+
+def _timestamp_ms(value: Any) -> int | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return int(parsed.timestamp() * 1000)
 
 
 class SourceError(RuntimeError):
@@ -180,6 +193,7 @@ def normalize_evalhub_job(job: dict[str, Any], workspace: str) -> dict[str, Any]
         "name": job.get("name") or results.get("name") or resource.get("name"),
         "state": status.get("state") or job.get("state") or "unknown",
         "created_at": resource.get("created_at") or job.get("created_at"),
+        "updated_at_ms": _timestamp_ms(resource.get("updated_at") or job.get("updated_at")),
         "model": {"name": model.get("name"), "url": model.get("url"), "revision": model.get("revision")},
         "experiment": experiment,
         "benchmarks": normalized_benchmarks,
