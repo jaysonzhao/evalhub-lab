@@ -3,14 +3,15 @@
   "ca_bundle_path": "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt",
   "tenant": "evalhub-lab",
   "provider_id": "REPLACE_WITH_REGISTERED_PROVIDER_UUID",
+  "dashboard_api_key_secret_name": "dashboard-maas-api-key",
   "approved_endpoint_prefixes": [
-    "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b"
+    "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm"
   ],
   "endpoint_secret_bindings": [
     {
-      "endpoint_prefix": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm/gpt-oss-20b",
-      "secret_names": [],
-      "secret_name_patterns": ["maas-gpt-oss-20b-[0-9a-f]{12}"]
+      "endpoint_prefix": "https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/llm",
+      "secret_names": ["dashboard-maas-api-key"],
+      "secret_name_patterns": []
     }
   ],
   "test_data_refs": {

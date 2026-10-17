@@ -1,6 +1,6 @@
 # Model Evaluation Dashboard
 
-A read-only React and FastAPI dashboard for the `evalhub-lab` MLflow workspace and EvalHub jobs. It reads live source APIs using a project-scoped OpenShift service account. The browser receives dashboard data only; source tokens and inference credentials are never sent to it.
+A React and FastAPI dashboard for the `evalhub-lab` MLflow workspace and EvalHub jobs. It reads live source APIs and can start the preconfigured `maas-evaluation` PipelineRun. The browser receives dashboard data only; Kubernetes credentials and inference credentials stay server-side.
 
 ## What it shows
 
@@ -8,9 +8,11 @@ A read-only React and FastAPI dashboard for the `evalhub-lab` MLflow workspace a
 - Side-by-side comparisons. Ranking and score deltas stay disabled unless the benchmark, scoring protocol, selected sample, denominator, and available run settings match.
 - Subject/domain and question-type metrics, plus transport, parser, truncation, latency, and answer error views when the run contains authorized per-question artifacts.
 - Performance data only when MLflow saved the corresponding measurements. Missing throughput or latency is not inferred from wall-clock duration.
+- Architecture walkthrough for the EvalHub, MaaS adapter, Tekton, MLflow, and durable run ledger flow.
+- Authenticated PipelineRun launcher with MaaS model discovery, run-scoped API-key input, benchmark/profile selection, and recent run status.
 - CSV, JSON, printable HTML, and chart exports. CSV cells that could be interpreted as formulas are escaped.
 
-Source timestamps remain UTC; the initial display timezone is `Asia/Hong_Kong`. Question text and model responses are retrieved only when a viewer opens a question row. The dashboard never submits, edits, cancels, or retrains evaluations.
+Source timestamps remain UTC; the initial display timezone is `Asia/Hong_Kong`. Question text and model responses are retrieved only when a viewer opens a question row. The launcher creates the preconfigured Tekton PipelineRun in `evalhub-lab`. Users load the MaaS model catalog using their API key, then choose a model, profile, and benchmark IDs. The model endpoint is derived from the selected model ID; Pipeline name, MaaS gateway, and one Kubernetes Secret reference remain fixed by dashboard deployment configuration. The key is sent over HTTPS, is not stored in the browser after submission, and is never a PipelineRun parameter. The pipeline clears its Secret data after all remote EvalHub jobs are terminal. If an EvalHub job remains active or its state is unknown, the key is retained for that job and another dashboard run is blocked until reconciliation.
 
 ## Metric interpretation
 
@@ -42,6 +44,6 @@ The API process is intended to run in the OpenShift pod with projected service-a
 
 ## OpenShift deployment
 
-See [`deploy/walkthrough.md`](deploy/walkthrough.md). It creates an isolated `evalhub-dashboard` namespace, binds only read access to `evalhub-lab`, protects the route with the OpenShift OAuth proxy, and builds the image in the cluster. The build uses `Containerfile`, the frontend npm lock, and the Python hash lock.
+See [`deploy/walkthrough.md`](deploy/walkthrough.md). It creates an isolated `evalhub-dashboard` namespace, binds source reads plus narrowly scoped PipelineRun create/list access to `evalhub-lab`, protects the route with the OpenShift OAuth proxy, and builds the image in the cluster. The build uses `Containerfile`, the frontend npm lock, and the Python hash lock.
 
-The app's authorization is intentionally visible in the UI: all viewers access data through the dashboard service identity, while the OAuth proxy requires the viewer to have `get pods` in `evalhub-lab`. The EvalHub connector uses only fixed `GET` requests. Its service account has no create/update/delete permission on evaluation records; EvalHub's Kubernetes proxy subresource itself requires `create` permission to open a tenant API proxy session.
+The app's authorization is intentionally visible in the UI: viewers access sources through the dashboard service identity, while the OAuth proxy requires the viewer to have `get pods` in `evalhub-lab`. The service account receives no create/update/delete permission on EvalHub evaluation records. Its workload permissions are PipelineRun create/list, patch access to only `dashboard-maas-api-key`, and read access to only `maas-eval-ledger`. The MaaS gateway, Pipeline, and Secret reference are server-owned settings; the selected model ID is checked against the MaaS catalog for the submitted key.

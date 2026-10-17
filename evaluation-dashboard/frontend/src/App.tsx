@@ -10,8 +10,10 @@ import {
   YAxis,
 } from "recharts";
 import { formatDate, formatMetric } from "./logic";
+import ArchitecturePage from "./ArchitecturePage";
+import PipelineRunsPage from "./PipelineRunsPage";
 
-type Page = "overview" | "compare" | "subjects" | "types" | "errors" | "performance" | "trends";
+type Page = "overview" | "compare" | "subjects" | "types" | "errors" | "performance" | "trends" | "architecture" | "pipeline";
 type Metric = {
   key: string;
   label: string;
@@ -97,11 +99,13 @@ const NAV: Array<{ id: Page; label: string; icon: string }> = [
   { id: "errors", label: "Error analysis", icon: "⌕" },
   { id: "performance", label: "Performance", icon: "◴" },
   { id: "trends", label: "Trends & runs", icon: "↗" },
+  { id: "architecture", label: "Architecture", icon: "⌘" },
+  { id: "pipeline", label: "Trigger pipeline", icon: "▶" },
 ];
 
 const COPY = {
-  en: { overview: "Overview", project: "Project workspace", runs: "Runs", benchmarks: "Benchmarks", completed: "Completed", failures: "Failed / cancelled", comparability: "Comparability unknown", refresh: "Refresh", loading: "Loading authorized evaluation data…", noRuns: "No evaluations are available in this workspace yet.", csv: "Export CSV", json: "Export JSON", print: "Printable summary", firstUse: "First use", step1: "Confirm the project workspace.", step2: "Choose a benchmark and model.", step3: "Inspect a comparison or open an error row.", score: "Overall accuracy", attempted: "Attempted", state: "State", model: "Model", benchmark: "Benchmark", all: "All", filter: "Filters", from: "From date", to: "Through date", timezone: "Timezone", search: "Find model, subject, benchmark, or run ID", source: "Live source", details: "Run detail", close: "Close", rows: "Rows", filtered: "Filtered subset accuracy", compare: "Compare selected", outcome: "Outcome", subject: "Subject / domain", questionType: "Question type", chooseRun: "Evaluation run", table: "Evaluation results", chart: "Accuracy by run", unavailable: "Not available in saved artifacts", noArtifact: "Question-level results are not included in the saved artifacts for this run.", downloadChart: "Download chart", rawMetrics: "Advanced source metrics", noComparable: "Descriptive view only. Fair ranking is disabled because required run provenance is missing or differs.", status: "Data status", identity: "Project-scoped read-only service identity", sourceNote: "Data is read from MLflow and EvalHub in this project; access reflects this dashboard service identity.", language: "繁體中文", openMLflow: "Open MLflow", retries: "Retry source" },
-  zh: { overview: "總覽", project: "專案工作區", runs: "執行紀錄", benchmarks: "基準測試", completed: "已完成", failures: "失敗／已取消", comparability: "可比較性未知", refresh: "重新整理", loading: "正在載入已授權的評估資料…", noRuns: "此工作區目前沒有可用的評估。", csv: "匯出 CSV", json: "匯出 JSON", print: "可列印摘要", firstUse: "首次使用", step1: "確認專案工作區。", step2: "選擇基準測試與模型。", step3: "檢視比較或開啟錯誤題目。", score: "整體正確率", attempted: "作答題數", state: "狀態", model: "模型", benchmark: "基準測試", all: "全部", filter: "篩選", from: "開始日期", to: "結束日期", timezone: "時區", search: "搜尋模型、領域、基準或執行 ID", source: "即時來源", details: "執行詳細資料", close: "關閉", rows: "題目數", filtered: "篩選子集正確率", compare: "比較所選項目", outcome: "結果類別", subject: "科目／領域", questionType: "題型", chooseRun: "評估執行", table: "評估結果", chart: "各次執行正確率", unavailable: "已儲存的成品未提供", noArtifact: "此執行的已儲存成品未包含逐題結果。", downloadChart: "下載圖表", rawMetrics: "進階來源指標", noComparable: "僅供描述。必要來源資訊缺失或不一致，因此停用公平排名。", status: "資料狀態", identity: "專案範圍唯讀服務身分", sourceNote: "資料來自此專案的 MLflow 和 EvalHub；存取權限依據此儀表板服務身分。", language: "English", openMLflow: "開啟 MLflow", retries: "重試來源" },
+  en: { overview: "Overview", project: "Project workspace", runs: "Runs", benchmarks: "Benchmarks", completed: "Completed", failures: "Failed / cancelled", comparability: "Comparability unknown", refresh: "Refresh", loading: "Loading authorized evaluation data…", noRuns: "No evaluations are available in this workspace yet.", csv: "Export CSV", json: "Export JSON", print: "Printable summary", firstUse: "First use", step1: "Confirm the project workspace.", step2: "Choose a benchmark and model.", step3: "Inspect a comparison or open an error row.", score: "Overall accuracy", attempted: "Attempted", state: "State", model: "Model", benchmark: "Benchmark", all: "All", filter: "Filters", from: "From date", to: "Through date", timezone: "Timezone", search: "Find model, subject, benchmark, or run ID", source: "Live source", details: "Run detail", close: "Close", rows: "Rows", filtered: "Filtered subset accuracy", compare: "Compare selected", outcome: "Outcome", subject: "Subject / domain", questionType: "Question type", chooseRun: "Evaluation run", table: "Evaluation results", chart: "Accuracy by run", unavailable: "Not available in saved artifacts", noArtifact: "Question-level results are not included in the saved artifacts for this run.", downloadChart: "Download chart", rawMetrics: "Advanced source metrics", noComparable: "Descriptive view only. Fair ranking is disabled because required run provenance is missing or differs.", status: "Data status", identity: "Project-scoped dashboard service identity", sourceNote: "Reads MLflow and EvalHub; can start the preconfigured evaluation PipelineRun.", language: "繁體中文", openMLflow: "Open MLflow", retries: "Retry source" },
+  zh: { overview: "總覽", project: "專案工作區", runs: "執行紀錄", benchmarks: "基準測試", completed: "已完成", failures: "失敗／已取消", comparability: "可比較性未知", refresh: "重新整理", loading: "正在載入已授權的評估資料…", noRuns: "此工作區目前沒有可用的評估。", csv: "匯出 CSV", json: "匯出 JSON", print: "可列印摘要", firstUse: "首次使用", step1: "確認專案工作區。", step2: "選擇基準測試與模型。", step3: "檢視比較或開啟錯誤題目。", score: "整體正確率", attempted: "作答題數", state: "狀態", model: "模型", benchmark: "基準測試", all: "全部", filter: "篩選", from: "開始日期", to: "結束日期", timezone: "時區", search: "搜尋模型、領域、基準或執行 ID", source: "即時來源", details: "執行詳細資料", close: "關閉", rows: "題目數", filtered: "篩選子集正確率", compare: "比較所選項目", outcome: "結果類別", subject: "科目／領域", questionType: "題型", chooseRun: "評估執行", table: "評估結果", chart: "各次執行正確率", unavailable: "已儲存的成品未提供", noArtifact: "此執行的已儲存成品未包含逐題結果。", downloadChart: "下載圖表", rawMetrics: "進階來源指標", noComparable: "僅供描述。必要來源資訊缺失或不一致，因此停用公平排名。", status: "資料狀態", identity: "專案範圍儀表板服務身分", sourceNote: "讀取此專案的 MLflow 和 EvalHub，並可啟動預先設定的評估 PipelineRun。", language: "English", openMLflow: "開啟 MLflow", retries: "重試來源" },
 } as const;
 
 function initialState(): { page: Page; filters: Filters; offset: number; selectedRun: string; compareIds: string[] } {
@@ -251,6 +255,10 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (page === "architecture" || page === "pipeline") {
+      setLoading(false);
+      return;
+    }
     let alive = true;
     const controller = new AbortController();
     const params = new URLSearchParams({ limit: "50", offset: String(offset) });
@@ -282,7 +290,7 @@ function App() {
       .catch((reason: unknown) => { if (alive && !(reason instanceof DOMException && reason.name === "AbortError")) setError(reason instanceof Error ? reason.message : "Could not load source data."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; controller.abort(); };
-  }, [filters, offset, refresh, runSearch]);
+  }, [filters, offset, refresh, runSearch, page]);
 
   useEffect(() => {
     fetch("/api/me", { credentials: "same-origin" }).then((r) => r.json()).then((d) => setUserName(d.user || "")).catch(() => undefined);
@@ -405,6 +413,7 @@ function App() {
 
   const filteredQuestionRows = questionRows?.items || [];
   const selectedQuestion = questionDetail;
+  const workspacePage = page === "architecture" || page === "pipeline";
 
   return (
     <div className="app-shell">
@@ -422,7 +431,7 @@ function App() {
           <div className="top-actions"><span className="user-chip"><span className="avatar">{(userName || "P").slice(0, 1).toUpperCase()}</span>{userName || "Project viewer"}</span><button className="button secondary small" onClick={() => setLanguage(language === "en" ? "zh" : "en")} aria-label="Change interface language">{t.language}</button></div>
         </header>
 
-        <section className="filter-panel" aria-label={t.filter}>
+        {!workspacePage && <section className="filter-panel" aria-label={t.filter}>
           <div className="filter-heading"><div><span className="eyebrow">{t.filter}</span><strong>{catalog?.workspace?.label || "evalhub-lab"}</strong></div><div className="filter-buttons"><a className="button tertiary small" href={`https://rh-ai.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com/mlflow`} target="_blank" rel="noreferrer">{t.openMLflow} ↗</a><button className="button secondary small" onClick={clearFilters}>Clear</button><button className="button primary small" onClick={() => setRefresh((n) => n + 1)} disabled={loading}><span className={loading ? "spin" : ""}>↻</span> {t.refresh}</button></div></div>
           <div className="filters-grid">
             <label>{t.benchmark}<select value={filters.benchmark} onChange={(e) => updateFilter("benchmark", e.target.value)}><option value="">{t.all}</option>{options?.benchmarks.map((x) => <option key={x}>{x}</option>)}</select></label>
@@ -436,15 +445,17 @@ function App() {
             <label className="search-filter">{t.search}<input type="search" value={runSearch} maxLength={120} placeholder={t.search} onChange={(e) => { setRunSearch(e.target.value); setOffset(0); writeUrl({ offset: null }); }} /></label>
           </div>
           <div className="active-filter-row"><span>{catalog?.total ?? 0} matching runs</span>{filters.benchmark && <button onClick={() => updateFilter("benchmark", "")} className="filter-chip">{filters.benchmark} ×</button>}{filters.model && <button onClick={() => updateFilter("model", "")} className="filter-chip">{filters.model} ×</button>}{filters.state && <button onClick={() => updateFilter("state", "")} className="filter-chip">{filters.state} ×</button>}{filters.protocol && <button onClick={() => updateFilter("protocol", "")} className="filter-chip">{filters.protocol} ×</button>}{filters.from && <span className="filter-chip-static">From {filters.from}</span>}{filters.to && <span className="filter-chip-static">Through {filters.to}</span>}</div>
-        </section>
+        </section>}
 
-        <div className="capture-row"><div><span className={`source-badge ${catalog?.data_completeness === "partial" ? "partial" : ""}`}><span className="source-dot" />{catalog?.data_completeness === "partial" ? "Partial source data" : "Live source data"}</span><span className="capture-text">{catalog?.captured_at ? `Captured ${formatDate(Date.parse(catalog.captured_at), filters.timezone)} · ${catalog.captured_at}` : t.loading}</span></div><span className="read-only-pill">Read only · {catalog?.workspace?.authorization_mode || t.identity}</span></div>
+        {!workspacePage && <div className="capture-row"><div><span className={`source-badge ${catalog?.data_completeness === "partial" ? "partial" : ""}`}><span className="source-dot" />{catalog?.data_completeness === "partial" ? "Partial source data" : "Live source data"}</span><span className="capture-text">{catalog?.captured_at ? `Captured ${formatDate(Date.parse(catalog.captured_at), filters.timezone)} · ${catalog.captured_at}` : t.loading}</span></div><span className="read-only-pill">Read only · {catalog?.workspace?.authorization_mode || t.identity}</span></div>}
 
-        {error && <div className="alert error-alert" role="alert"><strong>Source connection needs attention</strong><span>{error}</span><button className="button secondary small" onClick={() => setRefresh((n) => n + 1)}>{t.retries}</button></div>}
-        {catalog?.warnings?.map((warning) => <div className="alert warning-alert" role="status" key={`${warning.source}-${warning.kind}`}><strong>{warning.source} · {warning.kind || "partial"}</strong><span>{warning.message}</span></div>)}
-        {catalog?.data_completeness === "partial" && <div className="alert warning-alert"><strong>Data completeness: partial</strong><span>At least one source or paginated query was incomplete. Run summaries remain visible; unavailable source details are not inferred.</span></div>}
+        {!workspacePage && error && <div className="alert error-alert" role="alert"><strong>Source connection needs attention</strong><span>{error}</span><button className="button secondary small" onClick={() => setRefresh((n) => n + 1)}>{t.retries}</button></div>}
+        {!workspacePage && catalog?.warnings?.map((warning) => <div className="alert warning-alert" role="status" key={`${warning.source}-${warning.kind}`}><strong>{warning.source} · {warning.kind || "partial"}</strong><span>{warning.message}</span></div>)}
+        {!workspacePage && catalog?.data_completeness === "partial" && <div className="alert warning-alert"><strong>Data completeness: partial</strong><span>At least one source or paginated query was incomplete. Run summaries remain visible; unavailable source details are not inferred.</span></div>}
 
         <div className="content-wrap">
+          {page === "architecture" && <ArchitecturePage onTrigger={() => navigate("pipeline")} />}
+          {page === "pipeline" && <PipelineRunsPage />}
           {page === "overview" && <>
             <div className="page-title-row"><div><span className="eyebrow">EVALUATION WORKSPACE</span><h1>{t.overview}</h1><p>Review original run scores, coverage, and source quality in {catalog?.workspace?.label || "evalhub-lab"}.</p></div><div className="title-actions"><a className="button secondary" href={`/api/exports/runs.csv${exportParams ? `?${exportParams}` : ""}`}>{t.csv}</a><a className="button secondary" href={`/api/exports/runs.json${exportParams ? `?${exportParams}` : ""}`}>{t.json}</a><a className="button secondary" href={`/api/exports/summary.html?${exportParams}`} target="_blank" rel="noreferrer">{t.print}</a></div></div>
             <div className="guide-card"><div className="guide-icon">i</div><div><strong>{t.firstUse}</strong><p>{t.step1} <span>→</span> {t.step2} <span>→</span> {t.step3}</p></div><span className="guide-count">3 steps</span></div>
@@ -515,7 +526,7 @@ function App() {
 
       {selectedRunId && detail && <RunDrawer run={detail} timezone={filters.timezone} onClose={() => { setSelectedRunId(""); setDetail(null); writeUrl({ run: null }); }} t={t} />}
       {selectedQuestion && <QuestionDrawer question={selectedQuestion} onClose={() => setQuestionDetail(null)} />}
-      {loading && !catalog && <div className="loading-screen"><div className="loader" /><p>{t.loading}</p></div>}
+      {loading && !catalog && !workspacePage && <div className="loading-screen"><div className="loader" /><p>{t.loading}</p></div>}
     </div>
   );
 }

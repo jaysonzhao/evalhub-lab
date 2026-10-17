@@ -52,8 +52,9 @@ class ConfigMapLedger:
     ):
         self.namespace = namespace
         self.name = name
+        self.api_server = api_server.rstrip("/")
         self.object_url = (
-            api_server.rstrip("/") + "/api/v1/namespaces/" + urllib.parse.quote(namespace, safe="")
+            self.api_server + "/api/v1/namespaces/" + urllib.parse.quote(namespace, safe="")
             + "/configmaps/" + urllib.parse.quote(name, safe="")
         )
         try:
@@ -92,7 +93,14 @@ class ConfigMapLedger:
         )
         return instance
 
-    def _request(self, method: str, url: str, body: dict[str, Any] | None = None) -> tuple[int, Any]:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        body: dict[str, Any] | None = None,
+        *,
+        content_type: str = "application/json",
+    ) -> tuple[int, Any]:
         try:
             token = self.token_file.read_text(encoding="utf-8").strip()
         except OSError as exc:
@@ -107,7 +115,7 @@ class ConfigMapLedger:
             headers={
                 "Authorization": "Bearer " + token,
                 "Accept": "application/json",
-                "Content-Type": "application/json",
+                "Content-Type": content_type,
             },
         )
         try:
@@ -121,6 +129,9 @@ class ConfigMapLedger:
             if method == "PUT" and exc.code == 409:
                 exc.close()
                 return 409, None
+            if method == "PATCH" and exc.code == 404:
+                exc.close()
+                return 404, None
             status = int(exc.code)
             exc.close()
             raise LedgerError(f"Kubernetes ledger API returned HTTP {status} for {method}.") from None
@@ -188,3 +199,20 @@ class ConfigMapLedger:
             if status != 409:
                 return
         raise LedgerError("Durable run record changed repeatedly; reconciliation is required.")
+
+    def clear_secret_data(self, secret_name: str) -> None:
+        """Remove data from the one fixed, dashboard-owned model-key Secret."""
+        if not secret_name or not all(ch.islower() or ch.isdigit() or ch == "-" for ch in secret_name):
+            raise LedgerError("Dashboard model credential Secret name is invalid.")
+        secret_url = (
+            self.api_server + "/api/v1/namespaces/" + urllib.parse.quote(self.namespace, safe="")
+            + "/secrets/" + urllib.parse.quote(secret_name, safe="")
+        )
+        status, _ = self._request(
+            "PATCH",
+            secret_url,
+            {"data": None},
+            content_type="application/merge-patch+json",
+        )
+        if status not in {200, 404}:
+            raise LedgerError("Kubernetes did not clear the dashboard MaaS credential Secret.")

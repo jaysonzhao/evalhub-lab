@@ -44,6 +44,8 @@ metadata:
     image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"model-evaluation-dashboard:latest"},"fieldPath":"spec.template.spec.containers[0].image"}]'
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -75,6 +77,14 @@ spec:
               value: https://evalhub.evalhub-lab.svc.cluster.local:8443
             - name: EVALHUB_TENANT
               value: evalhub-lab
+            - name: PIPELINE_NAMESPACE
+              value: evalhub-lab
+            - name: PIPELINE_NAME
+              value: maas-evaluation
+            - name: PIPELINE_MAAS_ROOT
+              value: https://maas.apps.cluster-v4vsc.v4vsc.sandbox287.opentlc.com
+            - name: PIPELINE_MODEL_SECRET_NAME
+              value: dashboard-maas-api-key
             - name: SERVICE_CA_BUNDLE
               value: /etc/ca/service-ca.crt
             - name: HOME

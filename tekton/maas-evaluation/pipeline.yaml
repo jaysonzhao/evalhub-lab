@@ -119,6 +119,8 @@ spec:
           value: $(context.pipelineRun.uid)
         - name: pipeline-run-name
           value: $(context.pipelineRun.name)
+        - name: model-secret-name
+          value: $(params.model-secret-name)
       workspaces:
         - name: results
           workspace: results

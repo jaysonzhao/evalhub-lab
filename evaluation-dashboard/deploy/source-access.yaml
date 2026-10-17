@@ -1,5 +1,6 @@
 # Apply this file only after the evalhub-dashboard namespace and service
-# account exist. It grants read-only access in the source project.
+# account exist. It grants source reads, PipelineRun create/list, patch access
+# to one fixed API-key Secret, and read access to the durable run ledger.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -45,3 +46,46 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: mlflow-operator-mlflow-view
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: metrics-dashboard-pipeline-trigger
+  namespace: evalhub-lab
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["create", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["dashboard-maas-api-key"]
+    verbs: ["patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["maas-eval-ledger"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: metrics-dashboard-pipeline-trigger
+  namespace: evalhub-lab
+subjects:
+  - kind: ServiceAccount
+    name: metrics-dashboard
+    namespace: evalhub-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: metrics-dashboard-pipeline-trigger
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dashboard-maas-api-key
+  namespace: evalhub-lab
+  labels:
+    app.kubernetes.io/name: maas-evaluation
+    app.kubernetes.io/managed-by: evalhub-dashboard
+type: Opaque
+data: {}

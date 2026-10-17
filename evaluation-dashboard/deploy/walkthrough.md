@@ -1,6 +1,6 @@
 # OpenShift deployment walkthrough
 
-Run from `evaluation-dashboard/` after confirming the active `oc` context is the intended cluster. The files create resources only in `evalhub-dashboard` and read-only Role/RoleBinding objects in the source workspace `evalhub-lab`.
+Run from `evaluation-dashboard/` after confirming the active `oc` context is the intended cluster. The files create resources only in `evalhub-dashboard` and project-scoped Role/RoleBinding objects in the source workspace `evalhub-lab`.
 
 ## 1. Create the namespace and cookie secret
 
@@ -22,7 +22,7 @@ The OAuth cookie secret is generated at deployment time and is not stored in thi
 oc apply -f deploy/source-access.yaml
 ```
 
-The dashboard service account receives `get`/`list` on EvalHub evaluations, `get` on the named EvalHub instance, and the `get`/`create` verbs required by the named `evalhubs/proxy` subresource. The backend uses that proxy only for fixed `GET` requests. It also receives the existing MLflow read-only `mlflow-operator-mlflow-view` ClusterRole through a RoleBinding scoped to `evalhub-lab`. It does not receive create/update/delete on evaluations, MLflow edit, or cluster-wide roles. Confirm the MLflow ClusterRole exists before continuing:
+The dashboard service account receives `get`/`list` on EvalHub evaluations, `get` on the named EvalHub instance, and the `get`/`create` verbs required by the named `evalhubs/proxy` subresource. It also receives the existing MLflow read-only `mlflow-operator-mlflow-view` ClusterRole through a RoleBinding scoped to `evalhub-lab`. A separate Role grants only `create` and `list` on Tekton `pipelineruns`, `patch` on the single `dashboard-maas-api-key` Secret, and `get` on the single `maas-eval-ledger` ConfigMap. The dashboard fixes the Pipeline, namespace, MaaS gateway, Secret reference, workspace size, and timeouts. The user-supplied model ID is verified against the MaaS catalog before a run is created. The dashboard service account cannot read Secrets or create/update/delete EvalHub evaluations. Confirm the MLflow ClusterRole exists before continuing:
 
 ```sh
 oc get clusterrole mlflow-operator-mlflow-view
@@ -55,4 +55,4 @@ oc -n evalhub-lab get role metrics-dashboard-evalhub-reader -o yaml
 oc get clusterrole mlflow-operator-mlflow-view -o yaml
 ```
 
-The first two checks should return `yes`. EvalHub's `evaluations` and MLflow's `experiments` permissions are virtual API resources on this cluster, so `oc auth can-i` does not discover them. Confirm the EvalHub Role grants only `get`/`list` on `evaluations` and the MLflow ClusterRole contains no write verbs. Then verify that both live sources report `ok` in the dashboard.
+The checks should return `yes` for the documented access and `no` for Secret reads and unrelated Secret patches. EvalHub's `evaluations` and MLflow's `experiments` permissions are virtual API resources on this cluster, so `oc auth can-i` does not discover them. Confirm the PipelineRun Role grants only `create`/`list`, one Secret `patch`, and one ConfigMap `get`; the EvalHub Role grants only the documented source/proxy verbs; and the MLflow ClusterRole contains no write verbs. Then verify both live sources and the PipelineRun list in the dashboard.

@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .metrics import CHINESE_PROTOCOL, COUNT_KEYS, finite_number, normalize_metrics, parse_bool
+from .pipeline_runs import router as pipeline_runs_router
 from .sources import MAX_QUESTION_ROWS, EvalHubSource, MLflowSource, SourceError
 
 WORKSPACE = os.getenv("MLFLOW_WORKSPACE", "evalhub-lab")
@@ -298,6 +299,7 @@ def create_app(mlflow_source: MLflowSource | None = None, evalhub_source: EvalHu
     app.state.cache = {"expires": 0.0, "value": None}
     app.state.cache_lock = threading.Lock()
     app.state.question_cache = {}
+    app.include_router(pipeline_runs_router)
 
     def catalog(force: bool = False) -> dict[str, Any]:
         with app.state.cache_lock:

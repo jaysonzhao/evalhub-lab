@@ -33,6 +33,7 @@ QUALBENCH_EXCLUDED_IDS = [
 ]
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
+MAAS_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
 class EvaluationError(RuntimeError):
@@ -103,13 +104,12 @@ def validate_endpoint(endpoint: str, prefixes: list[str]) -> str:
     matched = False
     for prefix in prefixes:
         approved = validate_https_url(prefix, label="Approved MaaS prefix")
-        base = prefix.rstrip("/")
+        base_path = approved.path.rstrip("/")
         if (
             parsed.scheme.lower() == approved.scheme.lower()
             and parsed.hostname.lower() == approved.hostname.lower()
             and parsed.port == approved.port
-            and (parsed.path.rstrip("/") == approved.path.rstrip("/")
-                 or parsed.path.startswith(base + "/"))
+            and (parsed.path.rstrip("/") == base_path or parsed.path.startswith(base_path + "/"))
         ):
             matched = True
             break
@@ -143,6 +143,14 @@ def validate_endpoint_secret_binding(endpoint: str, secret_name: str, bindings: 
             if re.fullmatch(str(pattern), secret_name):
                 return
     raise EvaluationError("The selected Secret is not approved for this MaaS endpoint.")
+
+
+def validate_model_endpoint(endpoint: str, model_name: str) -> None:
+    if not MAAS_MODEL_ID_RE.fullmatch(model_name):
+        raise EvaluationError("model-name must be a valid MaaS model identifier.")
+    parsed = validate_https_url(endpoint, label="MaaS endpoint")
+    if urllib.parse.unquote(parsed.path.rstrip("/")) != "/llm/" + model_name:
+        raise EvaluationError("The MaaS model identifier must match the selected inference endpoint.")
 
 
 def profile_parameters(profile: str, dataset: str, dataset_info: dict[str, Any]) -> dict[str, Any]:
@@ -556,7 +564,8 @@ class Workflow:
         endpoint = validate_endpoint(endpoint, prefixes)
         validate_endpoint_secret_binding(endpoint, model_secret_name, self.runtime.get("endpoint_secret_bindings", []))
         if not model_name.strip() or any(ord(ch) < 32 for ch in model_name):
-            raise EvaluationError("Pass an explicit served model name; model discovery is not enabled for Secret refs.")
+            raise EvaluationError("Pass an explicit MaaS model identifier.")
+        validate_model_endpoint(endpoint, model_name.strip())
         provider_id = str(self.runtime.get("provider_id", ""))
         if not provider_id:
             raise EvaluationError("EvalHub provider ID is missing from runtime configuration.")
@@ -1038,9 +1047,34 @@ class Workflow:
                 "jobs": [{k: job.get(k) for k in ("dataset", "job_id", "submission_state", "remote_state", "last_error")} for job in state.get("jobs", [])],
                 "gate": state.get("gate"),
                 "collection": state.get("collection"),
-                "remaining_remote_jobs": [job.get("job_id") for job in state.get("jobs", []) if job.get("job_id") and job.get("remote_state") not in TERMINAL_STATES],
+                "remaining_remote_jobs": [
+                    job.get("job_id") or f"unresolved:{job.get('dataset', 'unknown')}"
+                    for job in state.get("jobs", [])
+                    if (
+                        (job.get("job_id") and job.get("remote_state") not in TERMINAL_STATES)
+                        or (not job.get("job_id") and job.get("submission_state") in {"in_flight", "unknown", "ambiguous"})
+                    )
+                ],
                 "note": "Cancelling a PipelineRun does not cancel remote EvalHub jobs; reconcile these owned IDs manually.",
             }
+        requested_secret = self.env.get("MODEL_SECRET_NAME", "").strip()
+        dashboard_secret = str(self.runtime.get("dashboard_api_key_secret_name", ""))
+        cleanup_error: str | None = None
+        if requested_secret and requested_secret == dashboard_secret:
+            if record.get("remaining_remote_jobs"):
+                record["credential_cleanup"] = "retained_for_active_remote_jobs"
+            elif not self.ledger:
+                record["credential_cleanup"] = "failed"
+                cleanup_error = "The temporary MaaS API key could not be cleared because the durable ledger client is unavailable."
+            else:
+                try:
+                    self.ledger.clear_secret_data(requested_secret)
+                    record["credential_cleanup"] = "cleared"
+                except LedgerError:
+                    record["credential_cleanup"] = "failed"
+                    cleanup_error = "The temporary MaaS API key could not be cleared by the diagnostics task."
+        else:
+            record["credential_cleanup"] = "not_applicable"
         path = self.work_dir / "diagnostics.json"
         path.write_bytes(json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
         if self.ledger:
@@ -1055,6 +1089,8 @@ class Workflow:
                 self.ledger.write(state, self._ledger_files())
             except (LedgerError, EvaluationError) as exc:
                 raise EvaluationError(str(exc)) from None
+        if cleanup_error:
+            raise EvaluationError(cleanup_error)
         return record
 
 

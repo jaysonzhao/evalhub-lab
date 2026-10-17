@@ -311,3 +311,101 @@ pre { max-width: 100%; padding: 10px; border-radius: 6px; overflow: auto; color:
   table { font-size: 8pt; }
   th, td { white-space: normal; }
 }
+
+.architecture-panel { overflow: hidden; }
+.architecture-diagram-scroll { width: 100%; overflow-x: auto; padding: 4px 0 9px; }
+.architecture-diagram { display: block; width: 100%; min-width: 900px; height: auto; }
+.arch-lane-label { fill: #8293a6; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
+.arch-group { fill: #f7faff; stroke: #dfe8f1; stroke-width: 1.5; }
+.arch-node, .arch-step, .arch-ledger { fill: #fff; stroke: #d8e4ef; stroke-width: 1.5; }
+.arch-node-blue { fill: #f0f7ff; stroke: #cbdff2; }
+.arch-node-purple { fill: #f5f2ff; stroke: #ddd5f2; }
+.arch-node-green, .arch-ledger { fill: #f0faf4; stroke: #cde7d5; }
+.arch-step { fill: #fff; }
+.arch-step-gate { fill: #fff9ee; stroke: #ecdcb5; }
+.arch-step-diagnostics { fill: #f0faf4; stroke: #cde7d5; stroke-dasharray: 4 3; }
+.arch-title { fill: #233d56; font-size: 16px; font-weight: 750; }
+.arch-subtitle { fill: #6c7f93; font-size: 11px; }
+.arch-link { fill: none; stroke: #7893ad; stroke-width: 2; }
+.arch-data-link { fill: none; stroke: #75a98b; stroke-width: 2; stroke-dasharray: 5 4; }
+.arch-data-label { fill: #5c8b70; font-size: 10px; }
+.arch-footnote { fill: #6e8297; font-size: 11px; }
+.architecture-legend { display: flex; flex-wrap: wrap; gap: 16px; padding: 3px 5px 0; color: #718195; font-size: 9px; }
+.architecture-legend span { display: flex; align-items: center; gap: 6px; }
+.architecture-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.legend-blue { background: #74a8d9; }
+.legend-purple { background: #927fc5; }
+.legend-green { background: #66a680; }
+.architecture-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 13px; }
+.architecture-info-card { position: relative; min-height: 150px; padding: 17px; }
+.architecture-index { display: inline-grid; width: 26px; height: 26px; place-items: center; border-radius: 7px; color: #2467a4; background: #eaf4ff; font-size: 10px; font-weight: 800; }
+.architecture-info-card h3 { margin: 12px 0 6px; color: #2a435c; font-size: 13px; }
+.architecture-info-card p { margin: 0; color: #6b7e92; font-size: 10px; line-height: 1.6; }
+.architecture-catalog { margin-top: 13px; padding: 17px; }
+.architecture-catalog .panel-heading { margin-bottom: 13px; }
+.architecture-benchmark-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.architecture-benchmark-grid article { display: grid; align-content: start; gap: 5px; min-height: 68px; padding: 11px; border: 1px solid #e4ebf2; border-radius: 8px; background: #fbfcfe; }
+.architecture-benchmark-grid strong { color: #35526d; font-size: 10px; }
+.architecture-benchmark-grid span { color: #74869a; font-size: 9px; line-height: 1.45; }
+.architecture-profile-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9eef3; color: #72849a; font-size: 9px; }
+.architecture-profile-row > strong { color: #455d75; }
+.architecture-profile-row b { color: #365b7c; }
+.pipeline-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(245px, .75fr); gap: 13px; align-items: start; }
+.pipeline-form-panel, .pipeline-summary-panel, .pipeline-history-panel { padding: 17px; }
+.pipeline-form-panel .panel-heading { margin-bottom: 16px; }
+.maas-credential-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto; align-items: end; gap: 9px; margin-bottom: 13px; }
+.pipeline-api-key { display: grid; gap: 6px; color: #52677e; font-size: 10px; font-weight: 750; }
+.pipeline-api-key input { height: 36px; padding: 0 9px; border: 1px solid #d8e1eb; border-radius: 6px; color: #2c4056; background: #fff; font-size: 11px; }
+.pipeline-api-key input::placeholder { color: #98a6b6; }
+.pipeline-api-key small { color: #7b8c9d; font-size: 9px; font-weight: 400; }
+.dataset-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.dataset-picker legend { margin-bottom: 8px; color: #52677e; font-size: 10px; font-weight: 750; }
+.dataset-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dataset-option { position: relative; min-height: 72px; display: flex; align-items: flex-start; gap: 9px; padding: 11px; border: 1px solid #e1e8ef; border-radius: 8px; background: #fbfcfe; cursor: pointer; }
+.dataset-option:hover { border-color: #a8c9e7; background: #f6faff; }
+.dataset-option.selected { border-color: #9bc4e6; background: #f0f7ff; }
+.dataset-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.dataset-check { width: 16px; height: 16px; flex: 0 0 16px; display: grid; place-items: center; border: 1px solid #c5d2df; border-radius: 4px; color: transparent; background: white; font-size: 10px; }
+.dataset-option.selected .dataset-check { border-color: #2474d2; color: white; background: #2474d2; }
+.dataset-option:focus-within { outline: 3px solid #53a4ff; outline-offset: 2px; }
+.dataset-option strong { display: block; color: #314c66; font-size: 10px; }
+.dataset-option small { display: block; margin-top: 4px; color: #7b8c9d; font-size: 9px; line-height: 1.4; }
+.dataset-shortcuts { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 16px; }
+.pipeline-profile { display: grid; gap: 6px; margin-bottom: 13px; color: #52677e; font-size: 10px; font-weight: 750; }
+.pipeline-profile select { width: 100%; max-width: 420px; height: 36px; padding: 0 9px; border: 1px solid #d8e1eb; border-radius: 6px; color: #2c4056; background: white; font-size: 11px; }
+.pipeline-profile small { color: #7b8c9d; font-size: 9px; font-weight: 400; }
+.full-run-confirm { display: flex; align-items: flex-start; gap: 8px; margin: 5px 0 10px; color: #755a22; font-size: 10px; line-height: 1.45; }
+.full-run-confirm input { margin: 1px 0 0; }
+.pipeline-boundary { display: grid; gap: 4px; margin: 14px 0; padding: 11px; border: 1px solid #e2eaf1; border-radius: 7px; background: #f7f9fc; }
+.pipeline-boundary strong { color: #435b72; font-size: 9px; }
+.pipeline-boundary span { color: #74869a; font-size: 9px; line-height: 1.5; }
+.pipeline-success { border-color: #cce8d6; color: #286747; background: #f1faf4; }
+.pipeline-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e8edf2; color: #738499; font-size: 9px; }
+.pipeline-submit-row .button:disabled { opacity: .55; cursor: not-allowed; }
+.pipeline-side-panel { display: grid; gap: 12px; }
+.pipeline-summary-panel h2 { margin: 6px 0 13px; color: #2c445b; font-size: 14px; }
+.pipeline-summary-panel dl { margin: 0; }
+.pipeline-summary-panel dl > div { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid #edf1f5; }
+.pipeline-summary-panel dt { color: #8391a0; font-size: 9px; }
+.pipeline-summary-panel dd { margin: 0; color: #405970; font-size: 9px; overflow-wrap: anywhere; }
+.pipeline-after-list { display: grid; gap: 10px; margin: 12px 0 0; padding-left: 19px; color: #61768b; font-size: 9px; line-height: 1.5; }
+.pipeline-history-panel { margin-top: 13px; }
+.pipeline-run-name { color: #335c80; font-size: 9px; }
+.pipeline-reason { display: block; margin-top: 4px; color: #9a4545; font-size: 8px; }
+@media (max-width: 1040px) {
+  .architecture-cards { grid-template-columns: 1fr; }
+  .architecture-info-card { min-height: 0; }
+  .architecture-benchmark-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pipeline-layout { grid-template-columns: 1fr; }
+  .pipeline-side-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 680px) {
+  .architecture-diagram { min-width: 850px; }
+  .architecture-legend { gap: 8px; }
+  .architecture-benchmark-grid { grid-template-columns: 1fr; }
+  .dataset-options { grid-template-columns: 1fr; }
+  .pipeline-side-panel { grid-template-columns: 1fr; }
+  .maas-credential-row { grid-template-columns: 1fr; }
+  .pipeline-form-panel, .pipeline-summary-panel, .pipeline-history-panel { padding: 11px; }
+  .pipeline-submit-row { align-items: flex-start; flex-direction: column; }
+}

@@ -27,6 +27,10 @@ rules:
     resources: [configmaps]
     resourceNames: [maas-eval-ledger]
     verbs: [get, update]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [dashboard-maas-api-key]
+    verbs: [patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

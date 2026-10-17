@@ -64,7 +64,9 @@ PIPELINE_NAMESPACE=evalhub-lab ./scripts/install.sh
 oc create --dry-run=server -f ./pipelinerun.example.yaml -n evalhub-lab
 ```
 
-The runner Role is namespace-scoped. It grants only the EvalHub virtual `evaluations` create/get/list rights, provider discovery reads, and MLflow `experiments` create/get rights required by EvalHub's job-create proxy policy. Its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It cannot create or edit the runtime ConfigMap, read Secrets, or administer providers. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
+The runner Role is namespace-scoped. It grants only the EvalHub virtual `evaluations` create/get/list rights, provider discovery reads, and MLflow `experiments` create/get rights required by EvalHub's job-create proxy policy. Its ConfigMap read/update permission is constrained to the single `maas-eval-ledger` object. It can patch only `dashboard-maas-api-key` to clear its data in the finally diagnostics task; it cannot read Secrets, create or edit the runtime ConfigMap, or administer providers. The authenticated dashboard launcher can patch only that same Secret to stage the user's entered MaaS key, and can read only the run ledger to ensure that key is not replaced while a remote EvalHub job may still use it. Limit who may edit Tasks, Pipelines, and PipelineRuns that use `maas-eval-runner`.
+
+The dashboard model picker queries the MaaS OpenAI-compatible `GET /v1/models` catalog over HTTPS. A submitted model is checked against that catalog again, and the endpoint is derived from its returned model ID. The API key is stored in the fixed Secret only for the run; the finally task clears it once all EvalHub jobs are terminal. A timeout or cancelled PipelineRun does not prove the remote jobs stopped, so the key is retained and a new dashboard run is blocked until reconciliation confirms terminal job state.
 
 ## Trigger all four smoke evaluations
 
