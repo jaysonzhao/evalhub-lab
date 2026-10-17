@@ -156,7 +156,10 @@ def profile_parameters(profile: str, dataset: str, dataset_info: dict[str, Any])
     base: dict[str, Any] = {
         "seed": 42,
         "temperature": 0,
-        "max_tokens": 128,
+        # gpt-oss uses part of the completion budget for reasoning before it
+        # emits the answer label. Keep this aligned with the adapter default
+        # so smoke runs do not fail the quality gate on a short token cap.
+        "max_tokens": 1024,
         "reasoning_effort": "low",
         "concurrency": 2,
         "data_manifest": "manifest.json",
