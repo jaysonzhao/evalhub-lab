@@ -354,6 +354,11 @@ function App() {
     });
   };
 
+  const clearCompareSelection = () => {
+    setCompareIds([]);
+    writeUrl({ compare: null });
+  };
+
   const openRun = (run: Run) => {
     if (!run.run_id) return;
     setSelectedRunId(run.run_id);
@@ -381,7 +386,7 @@ function App() {
             const score = accuracy(run);
             const id = run.run_id || run.source_id;
             return <tr key={run.source_id || id} className="table-row">
-              {withCompare && <td><input aria-label={`Select ${run.model.name} ${run.benchmark}`} type="checkbox" disabled={!run.run_id || (!compareIds.includes(run.run_id) && compareIds.length >= 6)} checked={Boolean(run.run_id && compareIds.includes(run.run_id))} onChange={() => run.run_id && toggleCompare(run.run_id)} /></td>}
+              {withCompare && <td><input aria-label={`Select ${run.benchmark || "unknown benchmark"} ${run.model.name} run ${(run.run_id || "unavailable").slice(0, 8)}`} type="checkbox" disabled={!run.run_id || (!compareIds.includes(run.run_id) && compareIds.length >= 6)} checked={Boolean(run.run_id && compareIds.includes(run.run_id))} onChange={() => run.run_id && toggleCompare(run.run_id)} /></td>}
               <td><button className="text-button" onClick={() => openRun(run)}>{run.model.name}{run.model.revision && <small className="muted"> · {run.model.revision}</small>}</button></td>
               <td>{run.benchmark || "Unknown"}</td>
               <td>{score ? <strong>{formatMetric(score)}</strong> : <span className="muted">Not available</span>}</td>
@@ -458,7 +463,18 @@ function App() {
 
           {page === "compare" && <>
             <PageTitle title="Model comparison" subtitle="Compare selected runs inside one benchmark. Missing provenance keeps the view descriptive and disables ranking." />
-            <section className="panel"><div className="panel-heading"><div><h2>Selected runs</h2><p>Select rows in the overview. You can compare two to six runs.</p></div><span className="count-pill">{compareIds.length} selected</span></div>{compareIds.length < 2 ? <EmptyState text="Choose at least two MLflow runs in Overview, then open Compare runs." /> : compareData ? <>
+            <section className="panel">
+              <div className="panel-heading">
+                <div><h2>Choose runs</h2><p>Select two to six MLflow runs here or in Overview. Current filters and search narrow this list; use the pager to browse more runs.</p></div>
+                <div className="filter-buttons">
+                  <span className="count-pill" aria-live="polite">{compareIds.length} of 6 selected</span>
+                  <button className="button secondary small" onClick={clearCompareSelection} disabled={compareIds.length === 0}>Clear selection</button>
+                </div>
+              </div>
+              {runTable(true)}
+              <Pager offset={offset} total={catalog?.total || 0} onChange={(next) => { setOffset(next); writeUrl({ offset: next || null }); }} />
+            </section>
+            <section className="panel"><div className="panel-heading"><div><h2>Selected runs</h2><p>The first selected run is the baseline. Select at least two MLflow runs to compare.</p></div><span className="count-pill">{compareIds.length} selected</span></div>{compareIds.length < 2 ? <EmptyState text="Choose at least two MLflow runs in the table above to see their comparison." /> : compareData ? <>
               {!compareData.fair_ranking_enabled && <div className="alert warning-alert"><strong>{t.noComparable}</strong><span>Every comparison lists its exact missing or mismatched fields below.</span></div>}
               <div className="table-wrap"><table><thead><tr><th>Role</th><th>{t.model}</th><th>{t.benchmark}</th><th>{t.score}</th><th>n</th><th>Run ID</th></tr></thead><tbody>{compareData.runs.map((run, index) => <tr key={run.source_id}><td>{index === 0 ? <span className="baseline-chip">Baseline</span> : `Candidate ${index}`}</td><td>{run.model.name}</td><td>{run.benchmark}</td><td>{accuracy(run) ? formatMetric(accuracy(run)!) : "Unknown"}</td><td>{run.metrics_raw?.attempted_count ?? "Unknown"}</td><td className="mono">{run.run_id || run.source_id}</td></tr>)}</tbody></table></div>
               <div className="comparison-grid">{compareData.comparisons.map((item, index) => <article className="compare-card" key={item.candidate_run_id || index}><span className={item.eligible ? "status status-completed" : "status status-unknown"}>{item.eligible ? "Eligible cohort" : "Descriptive only"}</span><h3>Candidate {index + 1}</h3>{item.delta !== null ? <strong>{item.delta > 0 ? "+" : ""}{item.delta.toFixed(2)} percentage points</strong> : <strong>Delta unavailable</strong>}<ul>{item.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul></article>)}</div>
