@@ -140,7 +140,7 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
             # write the measured result to a second run and return that run's ID.
             # Keep the result run as the dashboard row and hide only the empty,
             # still-open launch record when this explicit link proves the pair.
-            if job_id and canonical_run and canonical_run.get("metrics_raw"):
+            if job_id and canonical_run and (canonical_run.get("metrics_raw") or benchmark.get("metrics_raw")):
                 for candidate in by_job_id.get(str(job_id), []):
                     candidate_id = candidate.get("run_id")
                     same_benchmark = candidate.get("benchmark") == benchmark.get("benchmark")
@@ -184,6 +184,15 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
                     run["evalhub_state"] = job.get("state")
                     run["evalhub_name"] = job.get("name")
                     run.setdefault("source_refs", {})["evalhub_job_id"] = job_id
+                    job_state = _state(benchmark.get("state") or job.get("state"))
+                    if _state(run.get("state")) in {"running", "pending", "unknown"} and job_state in {"completed", "failed", "partially_failed", "cancelled"}:
+                        # EvalHub owns the evaluation lifecycle; callbacks can
+                        # leave the corresponding MLflow bookkeeping run open.
+                        run["state"] = job_state
+                    if not run.get("metrics_raw") and benchmark.get("metrics_raw"):
+                        # Prefer measured benchmark metrics from the explicitly
+                        # linked EvalHub result when the MLflow row is empty.
+                        run["metrics_raw"] = dict(benchmark["metrics_raw"])
                     if (run.get("model") or {}).get("name") in (None, "", "Unknown model"):
                         model = job.get("model") or {}
                         if model.get("name"):
