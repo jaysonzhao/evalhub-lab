@@ -103,7 +103,9 @@ def normalize_mlflow_run(run: Any, experiment: Any | None = None) -> dict[str, A
         "experiment_id": str(experiment_id) if experiment_id is not None else None,
         "experiment_name": getattr(experiment, "name", None) if experiment is not None else None,
         "run_id": str(run_id) if run_id is not None else None,
-        "job_id": None,
+        # EvalHub's MLflow runs carry the owning job ID even when the
+        # benchmark result does not include an MLflow run ID to join on.
+        "job_id": tags.get("evaluation_job_id") or tags.get("evalhub_job_id"),
         "run_name": info_get("run_name") or tags.get("mlflow.runName"),
         "state": str(info_get("status", "UNKNOWN")).lower(),
         "start_time_ms": info_get("start_time"),

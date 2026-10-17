@@ -121,20 +121,58 @@ def _join_sources(mlflow_runs: list[dict[str, Any]], jobs: list[dict[str, Any]],
     protocol_by_run = protocol_by_run or {}
     runs = [dict(run) for run in mlflow_runs]
     by_id = {run.get("run_id"): run for run in runs if run.get("run_id")}
+    by_job_id: dict[str, list[dict[str, Any]]] = {}
+    for run in runs:
+        job_id = run.get("job_id")
+        if job_id:
+            by_job_id.setdefault(str(job_id), []).append(run)
     linked_jobs: set[str] = set()
     evalhub_only: list[dict[str, Any]] = []
 
     for job in jobs:
-        for benchmark in job.get("benchmarks", []):
+        benchmarks = job.get("benchmarks", [])
+        job_id = job.get("job_id")
+        for benchmark in benchmarks:
             run_id = benchmark.get("mlflow_run_id")
-            if run_id and run_id in by_id:
-                run = by_id[run_id]
-                run["job_id"] = job.get("job_id")
-                run["evalhub_state"] = job.get("state")
-                run["evalhub_name"] = job.get("name")
-                run["source_refs"]["evalhub_job_id"] = job.get("job_id")
-                run["source_conflicts"] = _job_conflicts(job, run)
-                run.setdefault("source_provenance", []).append({"source": "evalhub", "job_id": job.get("job_id"), "benchmark": benchmark.get("benchmark")})
+            matches: list[tuple[dict[str, Any], str]] = []
+            run = by_id.get(run_id) if run_id else None
+            if run is not None:
+                matches.append((run, "mlflow_run_id"))
+            if job_id:
+                candidates = [
+                    candidate
+                    for candidate in by_job_id.get(str(job_id), [])
+                    if candidate.get("benchmark") == benchmark.get("benchmark")
+                ]
+                if not candidates and len(benchmarks) == 1:
+                    candidates = [
+                        candidate
+                        for candidate in by_job_id.get(str(job_id), [])
+                        if not candidate.get("benchmark")
+                    ]
+                existing_runs = {id(candidate) for candidate, _ in matches}
+                matches.extend(
+                    (candidate, "evaluation_job_id")
+                    for candidate in candidates
+                    if id(candidate) not in existing_runs
+                )
+
+            if matches:
+                for run, linked_by in matches:
+                    run["job_id"] = job_id
+                    run["evalhub_state"] = job.get("state")
+                    run["evalhub_name"] = job.get("name")
+                    run.setdefault("source_refs", {})["evalhub_job_id"] = job_id
+                    if (run.get("model") or {}).get("name") in (None, "", "Unknown model"):
+                        model = job.get("model") or {}
+                        if model.get("name"):
+                            run["model"] = {"name": model["name"], "revision": model.get("revision")}
+                    if not run.get("benchmark"):
+                        run["benchmark"] = benchmark.get("benchmark")
+                    if not run.get("provider_id"):
+                        run["provider_id"] = benchmark.get("provider_id")
+                    run["source_conflicts"] = _job_conflicts(job, run)
+                    run.setdefault("source_provenance", []).append({"source": "evalhub", "job_id": job_id, "benchmark": benchmark.get("benchmark"), "linked_by": linked_by})
                 linked_jobs.add(job.get("job_id", ""))
             else:
                 protocol = job.get("protocol")
