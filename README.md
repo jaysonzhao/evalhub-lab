@@ -1,19 +1,26 @@
 # RHOAI EvalHub Lab
 
-A hands-on workshop for running **Korean language evaluation benchmarks** and **AI safety guardrails evaluation** on **Red Hat OpenShift AI 3.5** using the **EvalHub** service (GA in RHOAI 3.5). This lab guides you through evaluating LLMs — including external MaaS endpoints and cluster-deployed models — on datasets like KMMLU, CLIcK, KoBEST, and HAE-RAE with centralized **MLflow experiment tracking**, automated **Data Science Pipelines**, and content safety evaluation using **NeMo Guardrails** and **Kanana Safeguard** on Korean hate speech.
+A hands-on lab for evaluating language models and AI safety guardrails on **Red Hat OpenShift AI 3.5** with **EvalHub** and **MLflow**. It includes Korean benchmark notebooks, a Chinese MCQ adapter and MaaS evaluation pipeline, a web dashboard for run history and comparisons, and content-safety evaluations with NeMo Guardrails and Kanana Safeguard. Evaluations can target MaaS endpoints or models deployed in the cluster.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     User[User / Workbench] -->|SDK / REST| EvalHub[EvalHub Service]
+    User -->|OpenShift OAuth| Dashboard[Evaluation Dashboard]
+    Dashboard -->|read jobs| EvalHub
+    Dashboard -->|read runs and metrics| MLflow[MLflow]
+    Dashboard -->|discover model IDs| MaaS[MaaS Gateway]
+    Dashboard -->|create PipelineRun| Tekton[MaaS Evaluation Pipeline]
+    Tekton -->|submit and monitor jobs| EvalHub
+    Tekton -->|status and evidence links| Ledger[Run Ledger]
     EvalHub -->|tracking| MLflow[MLflow]
     EvalHub --> Operator[TrustyAI Operator]
     Operator --> GuideLLM[GuideLLM Pod]
-    Operator --> MCQ[Korean MCQ Pod]
+    Operator --> MCQ[Korean or Chinese MCQ Adapter]
     GuideLLM -->|load test| Model[Model Endpoint<br/>KServe / MaaS]
     MCQ -->|API call| Model
-    MCQ -->|download| HF[HuggingFace Datasets]
+    MCQ -->|dataset access| HF[HuggingFace or staged data]
     User -->|kfp SDK| Pipeline[DS Pipeline Server]
     Pipeline -->|orchestrate| EvalHub
     User -->|REST| Guardrails[NeMo Guardrails]
@@ -31,7 +38,8 @@ flowchart LR
 - **GuideLLM (Phase 1):** Run inference performance benchmarks using [GuideLLM](https://github.com/neuralmagic/guidellm) through EvalHub to measure TTFT, ITL, throughput, and end-to-end latency.
 - **Korean MCQ (Phase 2):** Run individual Korean MCQ benchmarks (KMMLU, CLIcK, HAE-RAE, etc.) through the EvalHub SDK with MLflow tracking. Summarize and export results as Markdown/HTML reports.
 - **Unified Evaluation (Phase 3):** Run multi-benchmark evaluations and unified accuracy + performance (Korean MCQ + GuideLLM) experiments under a single MLflow experiment, with comparison tables and visualization.
-- **Pipeline (Phase 4):** Automate the entire evaluation workflow as a Kubeflow Pipeline (KFP v2) on OpenShift AI Data Science Pipelines — accuracy, performance, reporting, and Slack notification in a single run.
+- **KFP Pipeline (Phase 4):** The notebook workflow can submit a Kubeflow Pipeline (KFP v2) to OpenShift AI Data Science Pipelines for accuracy, performance, reporting, and Slack notification.
+- **Chinese MCQ and MaaS pipeline:** The `chinese-mcq` adapter evaluates `hkmmlu`, `tmmluplus`, `cmmlu`, and the approved QualBench diagnostic subset. The separate Tekton workflow submits one EvalHub job per selected benchmark, waits for results, collects MLflow links, and applies an execution/data-quality gate.
 - **Guardrails Evaluation (Phase 5):** Deploy and evaluate content safety guardrails — NeMo Guardrails (Nemotron Safety Guard) and Kanana Safeguard 8B — on Korean hate speech using the [K-MHaS](https://huggingface.co/datasets/nayohan/K-MHaS) dataset, with side-by-side model comparison.
 
 ## Model
@@ -62,14 +70,16 @@ Inference also requires a MaaS API key in `MODEL_API_KEY`. An OpenShift login to
 
 QualBench is enabled only as the approved diagnostic subset with the documented source anomalies excluded; full QualBench remains disabled. See [`adapters/chinese-mcq/PREFLIGHT.md`](adapters/chinese-mcq/PREFLIGHT.md) for the pinned data policy. The separate manual Tekton workflow is documented in [`tekton/maas-evaluation/README.md`](tekton/maas-evaluation/README.md); these versioned assets do not by themselves confirm a live provider registration or cluster deployment.
 
+The dashboard provides run history, comparison, an architecture walkthrough, and a MaaS PipelineRun launcher. The launcher discovers model IDs with the provided MaaS key, lets the user choose benchmarks and a run profile, and creates the configured PipelineRun. See the [dashboard overview](evaluation-dashboard/README.md) and [OpenShift deployment walkthrough](evaluation-dashboard/deploy/walkthrough.md). Comparison scores are enabled only when runs have compatible benchmark and scoring provenance.
+
 For disconnected deployments, use the [`evalhub-disconnected-deployment` skill](.cursor/skills/evalhub-disconnected-deployment/SKILL.md) and its [deployment guide](.cursor/skills/evalhub-disconnected-deployment/README.md). The bundle stages datasets and images on a connected host, transfers checksummed artifacts, and installs from an internal registry and PVC without cluster-side public downloads.
 
 ## What's Included
 
 ### 0. Setup
 
-- **0_setup/1_LMEval_setup.ipynb**: Configure RBAC permissions, create secrets (HF token, SA token), and verify cluster access for EvalHub evaluation jobs.
-- **0_setup/2_eval_hub_setup.ipynb**: Deploy the EvalHub service and MLflow on OpenShift, install the eval-hub-sdk, and verify connectivity.
+- **[0_setup/1_eval_hub_setup.ipynb](0_setup/1_eval_hub_setup.ipynb)**: Configure the EvalHub SDK against an already deployed service, check connectivity, configure MLflow tracking, and submit sample Korean benchmark jobs.
+- **[deploy/openshift](deploy/openshift/README.md)**: Deploy the isolated EvalHub service and PostgreSQL database. MLflow is managed separately by the cluster's OpenShift AI installation.
 
 ### 1. GuideLLM Performance Benchmark (Phase 1)
 
@@ -98,6 +108,17 @@ For disconnected deployments, use the [`evalhub-disconnected-deployment` skill](
 - **5_eval_guardrail/3_evaluate_guardrail_nemo.ipynb**: (User) Evaluate the NeMo Guardrails + Nemotron Safety Guard content safety pipeline on the K-MHaS Korean hate speech dataset. Computes precision, recall, F1, confusion matrix, per-category breakdown, and generates a self-contained HTML report with LLM-generated recommendations.
 - **5_eval_guardrail/3_evaluate_guardrail_kanana.ipynb**: (User) Evaluate Kanana Safeguard 8B on the same K-MHaS dataset. Same evaluation pipeline and metrics, enabling direct comparison with the NeMo Guardrails approach.
 
+### 6. Evaluation Dashboard
+
+- **[evaluation-dashboard](evaluation-dashboard/README.md)**: React and FastAPI app for MLflow and EvalHub run history, filters, comparable-run analysis, metric details, and exports.
+- The **Architecture** page diagrams the dashboard, MaaS, Tekton, EvalHub, adapter, MLflow, and run-ledger flow. The **Pipeline Runs** page discovers MaaS model IDs, accepts a run-scoped API key, and launches the configured evaluation pipeline.
+- **[evaluation-dashboard/deploy/walkthrough.md](evaluation-dashboard/deploy/walkthrough.md)**: Deploy the OAuth-protected dashboard with project-scoped source and PipelineRun access.
+
+### 7. MaaS Evaluation Pipeline
+
+- **[tekton/maas-evaluation](tekton/maas-evaluation/README.md)**: Install and run the Tekton pipeline for `hkmmlu`, `tmmluplus`, `cmmlu`, and the approved diagnostic `qualbench` subset.
+- Each selected benchmark becomes an EvalHub job. The pipeline waits for terminal job states, collects MLflow links, records status in the durable ledger, and applies an execution/data-quality gate. It does not define an accuracy acceptance threshold unless one is configured.
+
 ## Korean Benchmark Datasets
 
 
@@ -107,6 +128,8 @@ For disconnected deployments, use the [`evalhub-disconnected-deployment` skill](
 | **[CLIcK](https://huggingface.co/datasets/EunsuKim/CLIcK)**                 | Cultural and Linguistic Intelligence in Korean   | 11 categories (Culture + Language)              | 1,995   |
 | **[KoBEST](https://huggingface.co/datasets/skt/kobest_v1)**                 | Korean Balanced Evaluation of Significant Tasks  | WiC, CoPA, BoolQ, HellaSwag, SentiNeg           | 6,100+  |
 | **[HAE-RAE](https://huggingface.co/datasets/HAERAE-HUB/HAE_RAE_BENCH_1.1)** | Korean Language Proficiency Benchmark            | 6 categories (General Knowledge, History, etc.) | 1,538   |
+
+The Chinese MCQ adapter also supports `hkmmlu`, `tmmluplus`, and `cmmlu`. `qualbench` is available only as a diagnostic subset with the approved anomalous source rows excluded. See the [adapter preflight policy](adapters/chinese-mcq/PREFLIGHT.md) and [pipeline guide](tekton/maas-evaluation/README.md) for dataset revisions, subset labeling, and preparation steps.
 
 
 ## Reports
@@ -198,7 +221,7 @@ Two content-safety guardrail models were evaluated on Korean hate speech detecti
 ## Prerequisites
 
 - Red Hat OpenShift AI 3.5+ cluster with TrustyAI Operator installed
-- EvalHub service and MLflow deployed on the cluster (setup notebook handles this)
+- EvalHub and MLflow available in the target workspace. The setup notebook configures the SDK against an existing EvalHub service; see [`deploy/openshift/README.md`](deploy/openshift/README.md) for the isolated EvalHub deployment.
 - A model endpoint — either:
   - **MaaS:** External API endpoint URL + API key
   - **KServe:** Model deployed via KServe (vLLM runtime)
@@ -207,42 +230,40 @@ Two content-safety guardrail models were evaluated on Korean hate speech detecti
 
 ## Quick Start
 
-### Option A: Cluster Owner (full setup)
+### Option A: Cluster owner and dashboard operator
 
-1. Clone this repo into your OpenShift AI Workbench:
-  ```bash
+1. Clone this repository into your OpenShift AI Workbench or development environment:
+   ```bash
    git clone https://github.com/jaysonzhao/evalhub-lab.git
-   cd rhoai-evalhub-lab
-  ```
-2. Open `**0_setup/2_eval_hub_setup.ipynb**` and run **Step 0**:
-  - Edit the values in the cell (`NAMESPACE`, `MODEL_NAME`, `MODEL_ENDPOINT`, `MODEL_API_KEY`, `HF_TOKEN`, `HF_MODEL_ID`)
-  - Run the cell — it creates `.env` and installs all dependencies
-3. Run notebooks in order:
-  - `0_setup/1_LMEval_setup.ipynb` — One-time RBAC and secrets setup for EvalHub evaluation jobs
-  - `0_setup/2_eval_hub_setup.ipynb` — Deploy EvalHub + MLflow, then run **Step A-7** to generate a shared URL + token for participants
-  - `1_eval_hub_guidellm_benchmark/1_guidellm_benchmark.ipynb` — Inference performance profiling (TTFT, ITL, throughput)
-  - `2_eval_hub_kmcq_benchmark/1_kmcq_benchmark.ipynb` — Single Korean MCQ benchmark evaluation
-  - `2_eval_hub_kmcq_benchmark/2_summarize_results.ipynb` — Analyze results and generate Markdown/HTML reports
-  - `3_eval_hub_unified_benchmark/1_unified_benchmark.ipynb` — Multi-benchmark + unified accuracy/performance evaluation
-  - `4_eval_pipeline/1_run_pipeline.ipynb` — Automated pipeline evaluation (requires DS Pipelines)
-  - `5_eval_guardrail/1_guardrail_setup.ipynb` — Deploy NeMo Guardrails with content safety model
-  - `5_eval_guardrail/2_guardrail_test.ipynb` — Test guardrail configurations interactively
-  - `5_eval_guardrail/3_evaluate_guardrail_nemo.ipynb` — Evaluate NeMo Guardrails on K-MHaS Korean hate speech dataset
-  - `5_eval_guardrail/3_evaluate_guardrail_kanana.ipynb` — Evaluate Kanana Safeguard on K-MHaS Korean hate speech dataset
+   cd evalhub-lab
+   ```
+2. If EvalHub is not already available, follow [`deploy/openshift/README.md`](deploy/openshift/README.md) to deploy the lab service and database. Configure a MaaS API key separately for inference; it is not an OpenShift login token.
+3. Register the Chinese MCQ provider and prepare its datasets using [`tekton/maas-evaluation/README.md`](tekton/maas-evaluation/README.md). Install the pipeline with its approved runtime profile and image.
+4. Deploy the dashboard by following [`evaluation-dashboard/deploy/walkthrough.md`](evaluation-dashboard/deploy/walkthrough.md). The dashboard depends on the pipeline resources and its configured MaaS gateway.
+5. Open the dashboard route, review **Architecture**, then use **Pipeline Runs** to load MaaS models, enter the inference key, choose a profile and benchmarks, and submit a run. Use **Overview** and **Compare runs** to inspect completed results.
 
-### Option B: Workshop Participant (shared cluster)
+### Option B: Run the notebook workflow
 
-No cluster setup required — the cluster owner provides you with the connection info.
+1. Clone the repository and open [`0_setup/1_eval_hub_setup.ipynb`](0_setup/1_eval_hub_setup.ipynb).
+2. Copy `sample.env` to `.env` and set the EvalHub URL, model endpoint, MaaS API key, and other values for your environment.
+3. Run the setup notebook against an already deployed EvalHub service, then run the benchmark notebooks in order:
+   - `1_eval_hub_guidellm_benchmark/1_guidellm_benchmark.ipynb` — Inference performance profiling (TTFT, ITL, throughput)
+   - `2_eval_hub_kmcq_benchmark/1_kmcq_benchmark.ipynb` — Single Korean MCQ benchmark evaluation
+   - `2_eval_hub_kmcq_benchmark/2_summarize_results.ipynb` — Analyze results and generate Markdown/HTML reports
+   - `3_eval_hub_unified_benchmark/1_unified_benchmark.ipynb` — Multi-benchmark + unified accuracy/performance evaluation
+   - `4_eval_pipeline/1_run_pipeline.ipynb` — Historical KFP v2 workflow (requires Data Science Pipelines)
+   - `5_eval_guardrail/1_guardrail_setup.ipynb` — Deploy NeMo Guardrails with content safety model
+   - `5_eval_guardrail/2_guardrail_test.ipynb` — Test guardrail configurations interactively
+   - `5_eval_guardrail/3_evaluate_guardrail_nemo.ipynb` — Evaluate NeMo Guardrails on K-MHaS Korean hate speech dataset
+   - `5_eval_guardrail/3_evaluate_guardrail_kanana.ipynb` — Evaluate Kanana Safeguard on K-MHaS Korean hate speech dataset
 
-1. Clone this repo (Workbench, laptop, or any Jupyter environment):
-  ```bash
-   git clone https://github.com/jaysonzhao/evalhub-lab.git
-   cd rhoai-evalhub-lab
-  ```
-2. Open `**0_setup/2_eval_hub_setup.ipynb**` and run **Step 0**:
-  - Paste the values from the cluster owner: `NAMESPACE`, `MODEL_NAME`, `MODEL_ENDPOINT`, `MODEL_API_KEY`, `EVALHUB_URL`, `EVALHUB_AUTH_TOKEN`
-  - Run the cell — it creates `.env` and installs dependencies
-3. **Skip** `1_LMEval_setup` and Part A of `2_eval_hub_setup` — go directly to Phase 1-3 notebooks
+### Workshop participant (shared cluster)
+
+No cluster setup is required when the owner has already deployed EvalHub and MLflow and provides workspace access.
+
+1. Clone the repository and copy `sample.env` to `.env`.
+2. Set the EvalHub URL, workspace, model endpoint, and MaaS API key provided for your environment.
+3. Open [`0_setup/1_eval_hub_setup.ipynb`](0_setup/1_eval_hub_setup.ipynb) to verify access, then run the notebooks you need.
 
 > **Local development:** If you have [uv](https://docs.astral.sh/uv/) installed, you can use `uv sync` instead for a reproducible virtual environment.
 
